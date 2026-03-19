@@ -7,7 +7,7 @@ import re
 # Configuracion de la pagina
 st.set_page_config(page_title="Santiago Mussi | Numeric Solver", layout="wide")
 
-st.title("Analizador de Metodos Numericos Pro")
+st.title("Analizador de Metodos Numericos")
 st.markdown("---")
 
 # --- FUNCIONES DE EVALUACION Y DERIVADA ---
