@@ -6,7 +6,7 @@ import pandas as pd
 # Configuración de la página
 st.set_page_config(page_title="Numerical Solver Pro", layout="wide")
 
-st.title("🚀 Analizador de Métodos Numéricos")
+st.title("Analizador de Métodos Numéricos")
 st.markdown("---")
 
 # --- BARRA LATERAL ---
@@ -127,7 +127,7 @@ with col1:
     
     tol = st.number_input("Tolerancia", value=1e-7, format="%.8f")
     iters = st.slider("Máximo de iteraciones", 5, 100, 20)
-    boton = st.button("🚀 Calcular")
+    boton = st.button("Calcular")
 
 with col2:
     if boton:
