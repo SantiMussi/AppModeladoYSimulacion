@@ -112,7 +112,7 @@ metodo_sel = st.sidebar.selectbox("Selecciona Método", ["Bisección", "Newton-R
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    st.subheader("⌨Entrada")
+    st.subheader("Entrada")
     
     # Teclado Científico
     if 'input_val' not in st.session_state: st.session_state.input_val = "x**2 - 2"
