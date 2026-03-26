@@ -61,7 +61,7 @@ def calcular_lagrange_completo(x_points, y_points):
         polinomio_total += y_points[i] * li
     
     # Hacemos lo mismo para el polinomio final
-    poly_total_limpio = sp.expand(sp.nsimplify(polinomio_total))
+    poly_total_limpio = sp.expand(polinomio_total).evalf(5)
     
     return poly_total_limpio, listado_L
 
