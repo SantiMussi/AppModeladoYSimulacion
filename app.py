@@ -37,7 +37,6 @@ def calcular_error_relativo(x_nuevo, x_anterior):
     return (abs(x_nuevo - x_anterior) / abs(x_nuevo)) * 100
 
 # --- LOGICA DE LAGRANGE (SIMBOLICO Y NUMERICO) ---
-
 def calcular_lagrange_completo(x_points, y_points):
     x_sym = sp.symbols('x')
     n = len(x_points)
@@ -49,10 +48,18 @@ def calcular_lagrange_completo(x_points, y_points):
         for j in range(n):
             if i != j:
                 li *= (x_sym - x_points[j]) / (x_points[i] - x_points[j])
-        listado_L.append(sp.simplify(li))
+        
+        # sp.nsimplify convierte decimales (0.5) a fracciones exactas (1/2)
+        # sp.expand hace la distributiva para eliminar los paréntesis
+        li_limpio = sp.expand(sp.nsimplify(li))
+        listado_L.append(li_limpio)
+        
         polinomio_total += y_points[i] * li
     
-    return sp.simplify(polinomio_total), listado_L
+    # Hacemos lo mismo para el polinomio final
+    poly_total_limpio = sp.expand(sp.nsimplify(polinomio_total))
+    
+    return poly_total_limpio, listado_L
 
 # --- LOGICA DE DIFERENCIAS CENTRALES ---
 
