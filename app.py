@@ -3,6 +3,7 @@ import numpy as np
 import plotly.graph_objects as go
 import pandas as pd
 import re
+import sympy as sp
 
 # Configuracion de la pagina
 st.set_page_config(page_title="Santiago Mussi | Numeric Solver", layout="wide")
@@ -35,31 +36,38 @@ def calcular_error_relativo(x_nuevo, x_anterior):
     if abs(x_nuevo) < 1e-18: return 100.0
     return (abs(x_nuevo - x_anterior) / abs(x_nuevo)) * 100
 
-# --- LOGICA DE LOS NUEVOS METODOS (LAGRANGE Y DIFERENCIAS) ---
+# --- LOGICA DE LAGRANGE (SIMBOLICO Y NUMERICO) ---
 
-def metodo_lagrange(x_points, y_points, x_eval):
+def calcular_lagrange_completo(x_points, y_points):
+    x_sym = sp.symbols('x')
     n = len(x_points)
-    resultado = 0
+    listado_L = []
+    polinomio_total = 0
+    
     for i in range(n):
         li = 1
         for j in range(n):
             if i != j:
-                li *= (x_eval - x_points[j]) / (x_points[i] - x_points[j])
-        resultado += y_points[i] * li
-    return resultado
+                li *= (x_sym - x_points[j]) / (x_points[i] - x_points[j])
+        listado_L.append(sp.simplify(li))
+        polinomio_total += y_points[i] * li
+    
+    return sp.simplify(polinomio_total), listado_L
+
+# --- LOGICA DE DIFERENCIAS CENTRALES ---
 
 def metodo_diferencias_centrales(x_points, y_points):
     # Asumimos h constante basado en los dos primeros puntos
     h = x_points[1] - x_points[0]
     derivadas = []
-    # Solo podemos calcular diferencias centrales para puntos que tengan vecinos
+    # Solo podemos calcular diferencias centrales para puntos que tengan vecinos (ignoramos extremos)
     for i in range(1, len(x_points) - 1):
         d1 = (y_points[i+1] - y_points[i-1]) / (2 * h)
         d2 = (y_points[i+1] - 2*y_points[i] + y_points[i-1]) / (h**2)
         derivadas.append({"Punto x": x_points[i], "f'(x) (Vel)": d1, "f''(x) (Ace)": d2})
     return pd.DataFrame(derivadas)
 
-# --- LOGICA DE LOS METODOS ANTERIORES ---
+# --- LOGICA DE LOS METODOS ANTERIORES (RAICES) ---
 
 def metodo_biseccion(f_str, a, b, tol, max_iter):
     history = []
@@ -111,14 +119,15 @@ with col1:
         st.info("Ingresa los puntos como 'x, y' (uno por linea)")
         puntos_input = st.text_area("Puntos (x, y):", value="0, 1\n1, 3\n2, 2")
         try:
-            puntos = [list(map(float, line.split(','))) for line in puntos_input.strip().split('\n')]
+            # Procesar el input ignorando lineas en blanco
+            puntos = [list(map(float, line.split(','))) for line in puntos_input.strip().split('\n') if line.strip()]
             x_pts, y_pts = zip(*puntos)
             x_pts, y_pts = np.array(x_pts), np.array(y_pts)
         except:
-            st.error("Formato de puntos incorrecto.")
+            st.error("Formato de puntos incorrecto. Asegúrate de usar 'x, y'")
         
         if metodo_sel == "Interpolación Lagrange":
-            x_eval_target = st.number_input("Valor x a evaluar:", value=0.5)
+            x_eval_target = st.number_input("Valor x a evaluar (opcional):", value=0.5)
     else:
         func_input = st.text_input("Funcion:", value="x**2 - 2")
         if metodo_sel == "Bisección":
@@ -137,15 +146,32 @@ with col2:
         fig = go.Figure()
         
         if metodo_sel == "Interpolación Lagrange":
-            y_res = metodo_lagrange(x_pts, y_pts, x_eval_target)
-            st.success(f"Valor interpolado en x={x_eval_target}: {y_res:.6f}")
+            poly_simplificado, lista_Li = calcular_lagrange_completo(x_pts, y_pts)
             
-            # Graficar curva de Lagrange
+            st.subheader("Resultado de Lagrange")
+            st.markdown("### Polinomio Interpolante $P(x)$:")
+            st.latex(sp.latex(poly_simplificado))
+            
+            with st.expander("Ver Polinomios Base L_i(x)"):
+                for idx, li in enumerate(lista_Li):
+                    st.latex(f"L_{{{idx}}}(x) = {sp.latex(li)}")
+            
+            # Evaluación
+            x_sym = sp.symbols('x')
+            y_res = float(poly_simplificado.subs(x_sym, x_eval_target))
+            st.info(f"Evaluado en x={x_eval_target}: **{y_res:.6f}**")
+            
+            # Gráfico
             x_range = np.linspace(min(x_pts)-0.5, max(x_pts)+0.5, 100)
-            y_range = [metodo_lagrange(x_pts, y_pts, x) for x in x_range]
-            fig.add_trace(go.Scatter(x=x_range, y=y_range, name="Polinomio Lagrange", line=dict(color='#00cfcc')))
+            # Lambdify convierte la expresión de sympy en una función evaluable por numpy
+            f_lamb = sp.lambdify(x_sym, poly_simplificado, "numpy")
+            # Manejo de error por si el polinomio es una constante
+            y_range = f_lamb(x_range) if isinstance(f_lamb(x_range), np.ndarray) else np.full_like(x_range, f_lamb(x_range))
+            
+            fig.add_trace(go.Scatter(x=x_range, y=y_range, name="P(x)", line=dict(color='#00cfcc')))
             fig.add_trace(go.Scatter(x=x_pts, y=y_pts, mode='markers', name="Puntos Originales", marker=dict(size=10, color='white')))
             fig.add_trace(go.Scatter(x=[x_eval_target], y=[y_res], mode='markers', name="Punto Evaluado", marker=dict(size=12, color='red', symbol='star')))
+            fig.update_layout(template="plotly_dark", title="Interpolación de Lagrange")
             st.plotly_chart(fig, use_container_width=True)
 
         elif metodo_sel == "Diferencias Centrales":
@@ -154,7 +180,8 @@ with col2:
             st.dataframe(df_derivs.style.format(precision=6), use_container_width=True)
             
             fig.add_trace(go.Scatter(x=x_pts, y=y_pts, name="Datos Discretos", line=dict(dash='dash', color='gray')))
-            fig.add_trace(go.Scatter(x=df_derivs["Punto x"], y=df_derivs["f'(x) (Vel)"], name="Primera Derivada", mode='lines+markers'))
+            fig.add_trace(go.Scatter(x=df_derivs["Punto x"], y=df_derivs["f'(x) (Vel)"], name="Primera Derivada", mode='lines+markers', line=dict(color='#00cfcc')))
+            fig.update_layout(template="plotly_dark", title="Diferencias Centrales")
             st.plotly_chart(fig, use_container_width=True)
 
         else: # Metodos de Raices (Biseccion/Newton)
@@ -176,5 +203,6 @@ with col2:
                     y_plot = [evaluar_f(func_input, v) for v in x_plot]
                     fig.add_trace(go.Scatter(x=x_plot, y=y_plot, name="f(x)"))
                     fig.add_hline(y=0, line_dash="dash")
+                    fig.update_layout(template="plotly_dark", title=f"Método de {metodo_sel}")
                     st.plotly_chart(fig, use_container_width=True)
                     st.dataframe(df.style.format(precision=6), use_container_width=True)
