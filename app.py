@@ -161,10 +161,66 @@ with col2:
             st.latex(f"P({sp.latex(x_ev_sym)}) = {sp.latex(sp.simplify(val_p))}")
             
             if func_teorica:
-                v_real = evaluar_f(func_teorica, float(x_ev_sym.evalf()))
+                x_eval_float = float(x_ev_sym.evalf())
+                v_real = evaluar_f(func_teorica, x_eval_float)
                 if v_real is not None:
-                    err_abs = abs(float(val_p.evalf()) - v_real)
-                    st.warning(f"Error Real (Epsilon): {err_abs:.8f}")
+                    err_local = abs(float(val_p.evalf()) - v_real)
+
+                    # --- Error Teórico (Cota de Lagrange) ---
+                    n_pts = len(x_in_strs)          # cantidad de nodos
+                    # ω(x) = Π (x_eval - x_i)
+                    omega_val = float(np.prod([x_eval_float - xi for xi in x_in_num]))
+                    import math
+                    fact_n1 = math.factorial(n_pts)   # (n+1)! con n+1 = n_pts
+
+                    err_teo_str = "No calculable (función sin forma simbólica)"
+                    try:
+                        x_sym_var = sp.symbols('x')
+                        f_sym = sp.sympify(
+                            func_teorica.replace("^", "**")
+                            .replace("sqrt", "sp.sqrt")
+                            .replace("log", "sp.log")
+                            .replace("exp", "sp.exp")
+                            .replace("sin", "sp.sin")
+                            .replace("cos", "sp.cos")
+                        )
+                        # Derivada de orden n+1
+                        deriv_n1_sym = sp.diff(f_sym, x_sym_var, n_pts)
+                        deriv_n1_lam = sp.lambdify(x_sym_var, deriv_n1_sym, modules=['numpy'])
+
+                        # Máximo en el intervalo [min(x), max(x)] extendido hasta x_eval
+                        a_b = [min(x_in_num), max(x_in_num)]
+                        a_b.append(x_eval_float)
+                        x_sample = np.linspace(min(a_b), max(a_b), 500)
+                        vals_deriv = np.abs(deriv_n1_lam(x_sample).astype(float))
+                        M = float(np.nanmax(vals_deriv))
+
+                        error_teo = M * abs(omega_val) / fact_n1
+                        err_teo_str = f"{error_teo:.8f}"
+                        deriv_latex = sp.latex(deriv_n1_sym)
+                    except Exception as e:
+                        error_teo = None
+                        deriv_latex = "?"
+
+                    # Mostrar resultados
+                    col_e1, col_e2 = st.columns(2)
+                    with col_e1:
+                        st.metric("Error Local  |P(x) − f(x)|", f"{err_local:.8f}")
+                    with col_e2:
+                        st.metric("Error Teórico (Cota Lagrange)", err_teo_str)
+
+                    with st.expander("📐 Detalle del Error Teórico"):
+                        st.markdown(f"**Nodos:** {n_pts}  →  se usa la derivada de orden **{n_pts}**")
+                        st.latex(r"E(x) \leq \frac{M}{n!} \cdot |\omega(x)|")
+                        st.latex(
+                            rf"\omega(x) = \prod_{{i=0}}^{{n-1}}(x - x_i) = {omega_val:.6f}, "
+                            rf"\quad n! = {fact_n1}"
+                        )
+                        st.latex(rf"f^{{({n_pts})}}(x) = {deriv_latex}")
+                        if error_teo is not None:
+                            st.latex(
+                                rf"E \leq \frac{{{M:.6f}}}{{{fact_n1}}} \cdot |{omega_val:.6f}| = {error_teo:.8f}"
+                            )
 
             # Gráfico (solo si no hay variables b, c, etc en y)
             if all(sp.sympify(y).is_number for y in y_in_strs):
