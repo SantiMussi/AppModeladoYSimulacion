@@ -106,12 +106,15 @@ def metodo_simpson_13(f_str, a, b, n):
     f4_max = max(f4_vals) if f4_vals else 0.0
     error_trunc = abs((b - a) * h**4 * f4_max / 180)
 
-    # Tabla por segmentos (cada par de subintervalos)
+    # Tabla por segmentos con valores de x explícitos
     tabla = []
     for i in range(0, n, 2):
         integral_local = (h / 3) * (y_pts[i] + 4 * y_pts[i+1] + y_pts[i+2])
         tabla.append({
-            "Segmento": f"[{x_pts[i]:.4f}, {x_pts[i+2]:.4f}]",
+            "Segmento": f"[{x_pts[i]:.6f}, {x_pts[i+2]:.6f}]",
+            "xᵢ": round(float(x_pts[i]), 6),
+            "xᵢ₊₁": round(float(x_pts[i+1]), 6),
+            "xᵢ₊₂": round(float(x_pts[i+2]), 6),
             "f(xᵢ)": round(float(y_pts[i]), 6),
             "f(xᵢ₊₁)": round(float(y_pts[i+1]), 6),
             "f(xᵢ₊₂)": round(float(y_pts[i+2]), 6),
