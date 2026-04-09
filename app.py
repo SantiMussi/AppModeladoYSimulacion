@@ -126,6 +126,46 @@ def metodo_simpson_13(f_str, a, b, n):
     return integral, error_trunc, h, pd.DataFrame(tabla)
 
 
+# --- INTEGRACIÓN: TRAPECIOS ---
+
+def metodo_trapecios(f_str, a, b, n):
+    """Regla de Trapecios compuesta con n subintervalos."""
+    h = (b - a) / n
+    x_pts = np.linspace(a, b, n + 1)
+    y_pts = np.array([evaluar_f(f_str, xi) for xi in x_pts])
+    if any(v is None for v in y_pts):
+        return None, None, None, None
+
+    # Suma compuesta: extremos x1, interiores x2
+    suma = y_pts[0] + y_pts[-1] + 2 * np.sum(y_pts[1:-1])
+    integral = (h / 2) * suma
+
+    # Error de truncamiento: |E_T| <= (b-a)*h^2/12 * max|f''(xi)|
+    h_num = max(h * 0.1, 1e-4)
+    f2_vals = []
+    for xi in x_pts[1:-1]:
+        vals = [evaluar_f(f_str, xi + k * h_num) for k in [-1, 0, 1]]
+        if all(v is not None for v in vals):
+            f2 = (vals[0] - 2*vals[1] + vals[2]) / h_num**2
+            f2_vals.append(abs(f2))
+    f2_max = max(f2_vals) if f2_vals else 0.0
+    error_trunc = abs((b - a) * h**2 * f2_max / 12)
+
+    # Tabla por nodo
+    tabla = []
+    for k in range(n + 1):
+        coef = 1 if (k == 0 or k == n) else 2
+        fk = float(y_pts[k])
+        tabla.append({
+            "N": k,
+            "Xₙ": round(float(x_pts[k]), 8),
+            "F(Xₙ)": round(fk, 8),
+            "Coef.": coef,
+            "Coef. × F(Xₙ)": round(coef * fk, 8),
+        })
+    return integral, error_trunc, h, pd.DataFrame(tabla)
+
+
 # --- MÉTODOS DE RAÍCES ---
 
 def metodo_biseccion(f_str, a, b, tol, max_iter):
@@ -162,7 +202,7 @@ def metodo_newton_raphson(f_str, x0, tol, max_iter):
 
 st.sidebar.header("Configuración")
 metodo_sel = st.sidebar.selectbox("Selecciona Método",
-    ["Bisección", "Newton-Raphson", "Interpolación Lagrange", "Diferencias Centrales", "Simpson 1/3"])
+    ["Bisección", "Newton-Raphson", "Interpolación Lagrange", "Diferencias Centrales", "Simpson 1/3", "Trapecios"])
 
 col1, col2 = st.columns([1, 2])
 
@@ -198,6 +238,17 @@ with col1:
         except:
             st.error("Límites inválidos. Usá expresiones como: pi/2, sqrt(2), 1.5, 2*pi")
             a_simp, b_simp = 0.0, 1.0
+    elif metodo_sel == "Trapecios":
+        func_input = st.text_input("f(x):", value="x**2")
+        a_trap_str = st.text_input("Límite inferior a", value="0", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
+        b_trap_str = st.text_input("Límite superior b", value="1", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
+        n_trap = int(st.number_input("Nº subintervalos n", value=4, min_value=1, step=1))
+        try:
+            a_trap = float(sp.sympify(a_trap_str).evalf())
+            b_trap = float(sp.sympify(b_trap_str).evalf())
+        except:
+            st.error("Límites inválidos. Usá expresiones como: pi/2, sqrt(2), 1.5, 2*pi")
+            a_trap, b_trap = 0.0, 1.0
     else:
         func_input = st.text_input("f(x):", value="x**2 - 2")
         if metodo_sel == "Bisección":
@@ -345,6 +396,71 @@ with col2:
                     fig.update_layout(
                         template="plotly_dark",
                         title=f"Simpson 1/3 — ∫f(x)dx ≈ {integral:.6f}",
+                        xaxis_title="x", yaxis_title="f(x)"
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.error("No se pudo evaluar f(x) en el intervalo. Verificá la función.")
+
+        elif metodo_sel == "Trapecios":
+            integral, err_trunc, h_step, df_tabla = metodo_trapecios(func_input, a_trap, b_trap, n_trap)
+            if integral is not None:
+                st.subheader("Fórmulas")
+                st.latex(
+                    r"h = \frac{b - a}{n}"
+                )
+                st.latex(
+                    r"I \approx \frac{h}{2}\left[f(x_0) + 2f(x_1) + 2f(x_2) + \cdots + 2f(x_{n-1}) + f(x_n)\right]"
+                )
+                st.latex(
+                    r"|E_T| \leq \frac{(b-a)\,h^2}{12}\,\max_{\xi \in [a,b]}\left|f''(\xi)\right|"
+                )
+                with st.expander("📖 Notación"):
+                    st.markdown("""
+| Símbolo | Significado |
+|---|---|
+| $a,\\, b$ | Límites inferior y superior del intervalo de integración |
+| $n$ | Número de subintervalos |
+| $h$ | Ancho de cada subintervalo: $h = (b-a)/n$ |
+| $x_0, x_1, \\ldots, x_n$ | Nodos equiespaciados: $x_k = a + k\\,h$ |
+| $f(x_k)$ | Valor de la función en el nodo $x_k$ |
+| $I$ | Valor aproximado de la integral $\\int_a^b f(x)\\,dx$ |
+| $E_T$ | Error de truncamiento de la fórmula compuesta |
+| $f''(\\xi)$ | Segunda derivada de $f$ en algún punto $\\xi \\in [a,b]$ |
+""")
+                st.subheader("Resultado")
+                col_r1, col_r2, col_r3 = st.columns(3)
+                col_r1.metric("Integral ≈", f"{integral:.8f}")
+                col_r2.metric("Paso h", f"{h_step:.6f}")
+                col_r3.metric("Error Trunc. |Eₜ|", f"{err_trunc:.4e}")
+                st.dataframe(df_tabla, use_container_width=True)
+                # Gráfico con área sombreada y trapecios
+                x_plot = np.linspace(a_trap, b_trap, 300)
+                y_plot = [evaluar_f(func_input, xi) for xi in x_plot]
+                if None not in y_plot:
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=x_plot, y=y_plot, name="f(x)",
+                        line=dict(color='#f0a500', width=2),
+                        fill='tozeroy', fillcolor='rgba(240,165,0,0.12)'
+                    ))
+                    x_nodes = np.linspace(a_trap, b_trap, n_trap + 1)
+                    y_nodes = [evaluar_f(func_input, xi) for xi in x_nodes]
+                    # Dibuja los trapecios como líneas verticales desde el eje
+                    for xi, yi in zip(x_nodes, y_nodes):
+                        fig.add_shape(type="line",
+                            x0=xi, y0=0, x1=xi, y1=yi,
+                            line=dict(color='rgba(240,165,0,0.5)', width=1, dash='dot')
+                        )
+                    fig.add_trace(go.Scatter(
+                        x=x_nodes, y=y_nodes, mode='markers+lines',
+                        name="Nodos Trapecios",
+                        line=dict(color='#f0a500', width=1, dash='dash'),
+                        marker=dict(size=8, color='white')
+                    ))
+                    fig.update_layout(
+                        template="plotly_dark",
+                        title=f"Trapecios — ∫f(x)dx ≈ {integral:.6f}",
                         xaxis_title="x", yaxis_title="f(x)"
                     )
                     st.plotly_chart(fig, use_container_width=True)
