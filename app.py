@@ -128,7 +128,7 @@ def metodo_simpson_13(f_str, a, b, n):
 
 # --- INTEGRACIÓN: SIMPSON 3/8 ---
 
-def metodo_simpson_38(f_str, a, b, n):
+def metodo_simpson_38(f_str, a, b, n, a_str="", b_str=""):
     """Regla de Simpson 3/8 compuesta. n debe ser múltiplo de 3."""
     if n % 3 != 0:
         n += (3 - (n % 3))
@@ -158,6 +158,34 @@ def metodo_simpson_38(f_str, a, b, n):
     f4_max = max(f4_vals) if f4_vals else 0.0
     error_trunc = abs((b - a) * h**4 * f4_max / 80)
 
+    def format_xn(val_float, k):
+        try:
+            a_s = str(a_str).replace('π', 'pi').lower()
+            b_s = str(b_str).replace('π', 'pi').lower()
+            if 'pi' in a_s or 'pi' in b_s:
+                a_sym = sp.sympify(a_s)
+                b_sym = sp.sympify(b_s)
+                a_c = sp.simplify(a_sym / sp.pi)
+                b_c = sp.simplify(b_sym / sp.pi)
+                if a_c.is_Rational and b_c.is_Rational:
+                    h_c = (b_c - a_c) / n
+                    D = int(sp.lcm(a_c.q, h_c.q))
+                    num = int((a_c + k * h_c) * D)
+                    if num == 0:
+                        return "0"
+                    
+                    if D == 1:
+                        if num == 1: return "π"
+                        elif num == -1: return "-π"
+                        return f"{num}π"
+                    
+                    if num == 1: return f"π/{D}"
+                    elif num == -1: return f"-π/{D}"
+                    return f"{num}π/{D}"
+        except:
+            pass
+        return str(round(float(val_float), 8))
+
     # Tabla por nodo
     tabla = []
     for k in range(n + 1):
@@ -170,7 +198,7 @@ def metodo_simpson_38(f_str, a, b, n):
         fk = float(y_pts[k])
         tabla.append({
             "N": k,
-            "Xₙ": round(float(x_pts[k]), 8),
+            "Xₙ": format_xn(x_pts[k], k),
             "F(Xₙ)": round(fk, 8),
             "Coef.": coef,
             "Coef. × F(Xₙ)": round(coef * fk, 8),
@@ -479,7 +507,7 @@ with col2:
                 st.error("No se pudo evaluar f(x) en el intervalo. Verificá la función.")
 
         elif metodo_sel == "Simpson 3/8":
-            integral, err_trunc, h_step, df_tabla = metodo_simpson_38(func_input, a_simp38, b_simp38, n_simp38)
+            integral, err_trunc, h_step, df_tabla = metodo_simpson_38(func_input, a_simp38, b_simp38, n_simp38, a_simp38_str, b_simp38_str)
             if integral is not None:
                 st.subheader("Fórmulas")
                 st.latex(
