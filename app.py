@@ -168,6 +168,17 @@ def metodo_trapecios(f_str, a, b, n):
 
 # --- MÉTODOS DE RAÍCES ---
 
+def fmt_error(v):
+    """Formatea el error de truncamiento de forma legible:
+    - Si es >= 0.0001 y < 10000: muestra decimal con 6 cifras.
+    - Si no: notación científica con 4 dígitos."""
+    if v == 0:
+        return "0.000000"
+    if 1e-4 <= v < 1e4:
+        return f"{v:.6f}"
+    return f"{v:.4e}"
+
+
 def metodo_biseccion(f_str, a, b, tol, max_iter):
     history = []
     fa, fb = evaluar_f(f_str, a), evaluar_f(f_str, b)
@@ -375,7 +386,7 @@ with col2:
                 col_r1, col_r2, col_r3 = st.columns(3)
                 col_r1.metric("Integral ≈", f"{integral:.8f}")
                 col_r2.metric("Paso h", f"{h_step:.6f}")
-                col_r3.metric("Error Trunc. |Eₜ|", f"{err_trunc:.4e}")
+                col_r3.metric("Error Trunc. |Eₜ|", fmt_error(err_trunc))
                 st.dataframe(df_tabla, use_container_width=True)
                 # Gráfico con área sombreada
                 x_plot = np.linspace(a_simp, b_simp, 300)
