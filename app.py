@@ -252,7 +252,12 @@ def formatear_error(valor):
     if valor == 0:
         return "0.0000"
     if abs(valor) < 0.0001:
-        return f"{valor:.4e}"
+        s = f"{valor:.4e}"
+        base, exp = s.split('e')
+        exp_int = int(exp)  # Convierte '-05' a -5
+        superscripts = {'-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'}
+        exp_sup = ''.join(superscripts.get(c, c) for c in str(exp_int))
+        return f"{base} × 10{exp_sup}"
     return f"{valor:.6f}"
 
 
