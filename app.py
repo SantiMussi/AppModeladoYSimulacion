@@ -509,7 +509,13 @@ with col2:
                 col_r1.metric("Integral ≈", f"{integral:.8f}")
                 col_r2.metric("Paso h", f"{h_step:.6f}")
                 col_r3.metric("Error Trunc. |Eₜ|", fmt_error(err_trunc))
-                st.dataframe(df_tabla, use_container_width=True)
+                
+                def highlight_38(row):
+                    if (int(row['N']) // 3) % 2 == 0:
+                        return ['background-color: rgba(224, 60, 230, 0.12)'] * len(row)
+                    return [''] * len(row)
+                
+                st.dataframe(df_tabla.style.apply(highlight_38, axis=1), use_container_width=True)
                 # Gráfico con área sombreada
                 x_plot = np.linspace(a_simp38, b_simp38, 300)
                 y_plot = [evaluar_f(func_input, xi) for xi in x_plot]
