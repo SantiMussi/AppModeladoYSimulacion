@@ -180,11 +180,17 @@ with col1:
             st.error("Error al leer puntos.")
     elif metodo_sel == "Simpson 1/3":
         func_input = st.text_input("f(x):", value="x**3")
-        a_simp = st.number_input("Límite inferior a", value=0.0)
-        b_simp = st.number_input("Límite superior b", value=1.0)
+        a_simp_str = st.text_input("Límite inferior a", value="0", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
+        b_simp_str = st.text_input("Límite superior b", value="1", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         n_simp = int(st.number_input("Nº subintervalos n (debe ser par)", value=4, min_value=2, step=2))
         if n_simp % 2 != 0:
             st.warning("n debe ser par — se ajustará a n+1 automáticamente.")
+        try:
+            a_simp = float(sp.sympify(a_simp_str).evalf())
+            b_simp = float(sp.sympify(b_simp_str).evalf())
+        except:
+            st.error("Límites inválidos. Usá expresiones como: pi/2, sqrt(2), 1.5, 2*pi")
+            a_simp, b_simp = 0.0, 1.0
     else:
         func_input = st.text_input("f(x):", value="x**2 - 2")
         if metodo_sel == "Bisección":
