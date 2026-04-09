@@ -77,6 +77,48 @@ def metodo_diferencias_centrales(x_pts, y_pts):
         })
     return pd.DataFrame(derivadas)
 
+# --- INTEGRACIÓN: SIMPSON 1/3 ---
+
+def metodo_simpson_13(f_str, a, b, n):
+    """Regla de Simpson 1/3 compuesta. n debe ser par."""
+    if n % 2 != 0:
+        n += 1
+    h = (b - a) / n
+    x_pts = np.linspace(a, b, n + 1)
+    y_pts = np.array([evaluar_f(f_str, xi) for xi in x_pts])
+    if any(v is None for v in y_pts):
+        return None, None, None, None
+
+    # Suma compuesta Simpson 1/3
+    suma = y_pts[0] + y_pts[-1]
+    for i in range(1, n):
+        suma += (4 if i % 2 != 0 else 2) * y_pts[i]
+    integral = (h / 3) * suma
+
+    # Error de truncamiento: |E_T| <= (b-a)*h^4/180 * max|f''''(xi)|
+    h_num = max(h * 0.1, 1e-4)
+    f4_vals = []
+    for xi in x_pts[2:-2]:
+        vals = [evaluar_f(f_str, xi + k * h_num) for k in [-2, -1, 0, 1, 2]]
+        if all(v is not None for v in vals):
+            f4 = (vals[0] - 4*vals[1] + 6*vals[2] - 4*vals[3] + vals[4]) / h_num**4
+            f4_vals.append(abs(f4))
+    f4_max = max(f4_vals) if f4_vals else 0.0
+    error_trunc = abs((b - a) * h**4 * f4_max / 180)
+
+    # Tabla por segmentos (cada par de subintervalos)
+    tabla = []
+    for i in range(0, n, 2):
+        integral_local = (h / 3) * (y_pts[i] + 4 * y_pts[i+1] + y_pts[i+2])
+        tabla.append({
+            "Segmento": f"[{x_pts[i]:.4f}, {x_pts[i+2]:.4f}]",
+            "f(xᵢ)": round(float(y_pts[i]), 6),
+            "f(xᵢ₊₁)": round(float(y_pts[i+1]), 6),
+            "f(xᵢ₊₂)": round(float(y_pts[i+2]), 6),
+            "Área parcial": round(float(integral_local), 8),
+        })
+    return integral, error_trunc, h, pd.DataFrame(tabla)
+
 # --- MÉTODOS DE RAÍCES ---
 
 def metodo_biseccion(f_str, a, b, tol, max_iter):
@@ -112,8 +154,8 @@ def metodo_newton_raphson(f_str, x0, tol, max_iter):
 # --- INTERFAZ ---
 
 st.sidebar.header("Configuración")
-metodo_sel = st.sidebar.selectbox("Selecciona Método", 
-    ["Bisección", "Newton-Raphson", "Interpolación Lagrange", "Diferencias Centrales"])
+metodo_sel = st.sidebar.selectbox("Selecciona Método",
+    ["Bisección", "Newton-Raphson", "Interpolación Lagrange", "Diferencias Centrales", "Simpson 1/3"])
 
 col1, col2 = st.columns([1, 2])
 
@@ -136,6 +178,13 @@ with col1:
             y_in_num = np.array([float(sp.sympify(y).evalf()) for y in y_in_strs])
         except:
             st.error("Error al leer puntos.")
+    elif metodo_sel == "Simpson 1/3":
+        func_input = st.text_input("f(x):", value="x**3")
+        a_simp = st.number_input("Límite inferior a", value=0.0)
+        b_simp = st.number_input("Límite superior b", value=1.0)
+        n_simp = int(st.number_input("Nº subintervalos n (debe ser par)", value=4, min_value=2, step=2))
+        if n_simp % 2 != 0:
+            st.warning("n debe ser par — se ajustará a n+1 automáticamente.")
     else:
         func_input = st.text_input("f(x):", value="x**2 - 2")
         if metodo_sel == "Bisección":
@@ -191,6 +240,46 @@ with col2:
             df = metodo_diferencias_centrales(x_in_num, y_in_num)
             if df is not None: st.table(df)
             else: st.error("Se necesitan al menos 3 puntos.")
+
+        elif metodo_sel == "Simpson 1/3":
+            integral, err_trunc, h_step, df_tabla = metodo_simpson_13(func_input, a_simp, b_simp, n_simp)
+            if integral is not None:
+                st.subheader("Resultado")
+                st.latex(
+                    r"I \approx \frac{h}{3}\left[f(x_0) + 4f(x_1) + 2f(x_2) + \cdots + 4f(x_{n-1}) + f(x_n)\right]"
+                )
+                col_r1, col_r2, col_r3 = st.columns(3)
+                col_r1.metric("Integral ≈", f"{integral:.8f}")
+                col_r2.metric("Paso h", f"{h_step:.6f}")
+                col_r3.metric("Error Trunc. |Eₜ|", f"{err_trunc:.4e}")
+                st.info(
+                    r"$|E_T| \leq \dfrac{(b-a)\,h^4}{180}\,\max_{\xi \in [a,b]}\left|f^{(4)}(\xi)\right|$"
+                )
+                st.dataframe(df_tabla, use_container_width=True)
+                # Gráfico con área sombreada
+                x_plot = np.linspace(a_simp, b_simp, 300)
+                y_plot = [evaluar_f(func_input, xi) for xi in x_plot]
+                if None not in y_plot:
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=x_plot, y=y_plot, name="f(x)",
+                        line=dict(color='#00cfcc', width=2),
+                        fill='tozeroy', fillcolor='rgba(0,207,204,0.15)'
+                    ))
+                    x_nodes = np.linspace(a_simp, b_simp, n_simp + 1)
+                    y_nodes = [evaluar_f(func_input, xi) for xi in x_nodes]
+                    fig.add_trace(go.Scatter(
+                        x=x_nodes, y=y_nodes, mode='markers',
+                        name="Nodos Simpson", marker=dict(size=8, color='#ff4b4b')
+                    ))
+                    fig.update_layout(
+                        template="plotly_dark",
+                        title=f"Simpson 1/3 — ∫f(x)dx ≈ {integral:.6f}",
+                        xaxis_title="x", yaxis_title="f(x)"
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.error("No se pudo evaluar f(x) en el intervalo. Verificá la función.")
 
         else: # Raíces
             df, estado, raiz, err = metodo_biseccion(func_input, a_in, b_in, tol_in, iter_in) if metodo_sel == "Bisección" else metodo_newton_raphson(func_input, x0_in, tol_in, iter_in)
