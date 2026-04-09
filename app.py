@@ -106,21 +106,25 @@ def metodo_simpson_13(f_str, a, b, n):
     f4_max = max(f4_vals) if f4_vals else 0.0
     error_trunc = abs((b - a) * h**4 * f4_max / 180)
 
-    # Tabla por segmentos con valores de x explícitos
+    # Tabla por nodo: N, Xn, F(Xn), coeficiente Simpson, término ponderado
     tabla = []
-    for i in range(0, n, 2):
-        integral_local = (h / 3) * (y_pts[i] + 4 * y_pts[i+1] + y_pts[i+2])
+    for k in range(n + 1):
+        if k == 0 or k == n:
+            coef = 1
+        elif k % 2 != 0:
+            coef = 4
+        else:
+            coef = 2
+        fk = float(y_pts[k])
         tabla.append({
-            "Segmento": f"[{x_pts[i]:.6f}, {x_pts[i+2]:.6f}]",
-            "xᵢ": round(float(x_pts[i]), 6),
-            "xᵢ₊₁": round(float(x_pts[i+1]), 6),
-            "xᵢ₊₂": round(float(x_pts[i+2]), 6),
-            "f(xᵢ)": round(float(y_pts[i]), 6),
-            "f(xᵢ₊₁)": round(float(y_pts[i+1]), 6),
-            "f(xᵢ₊₂)": round(float(y_pts[i+2]), 6),
-            "Área parcial": round(float(integral_local), 8),
+            "N": k,
+            "Xₙ": round(float(x_pts[k]), 8),
+            "F(Xₙ)": round(fk, 8),
+            "Coef.": coef,
+            "Coef. × F(Xₙ)": round(coef * fk, 8),
         })
     return integral, error_trunc, h, pd.DataFrame(tabla)
+
 
 # --- MÉTODOS DE RAÍCES ---
 
