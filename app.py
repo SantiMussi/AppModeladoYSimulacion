@@ -1024,7 +1024,7 @@ with col2:
                 c2.metric("Valor Exacto (Scipy)", f"{exact_val:.6f}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
             else:
                 c2.metric("Valor Exacto", "N/A")
-            c3.metric("Error Estándar (EE)", f"{err_est:.6e}")
+            c3.metric("Error Estándar (EE)", formatear_error(err_est))
             c4.metric(f"IC {conf_mc}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
             st.write(f"**Área S (Volumen):** {vol:.4f}")
             st.dataframe(df_tabla, use_container_width=True)
@@ -1129,7 +1129,7 @@ with col2:
                 c2.metric("Valor Exacto (Scipy)", f"{exact_val:.6f}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
             else:
                 c2.metric("Valor Exacto", "N/A")
-            c3.metric("Error Estándar (EE)", f"{err_est:.6e}")
+            c3.metric("Error Estándar (EE)", formatear_error(err_est))
             c4.metric(f"IC {conf_mc2}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
             st.write(f"**Área Integración (S):** {area_xy:.4f}")
             st.dataframe(df_tabla, use_container_width=True)
