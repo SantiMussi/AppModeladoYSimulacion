@@ -531,6 +531,9 @@ def metodo_newton_raphson(f_str, x0, tol, max_iter):
 
 st.sidebar.header("Configuración")
 mostrar_formulas = st.sidebar.checkbox("Visor Fórmulas (Ctrl+Shift+F)", value=False)
+precision = st.sidebar.slider("Precisión Decimal", 1, 12, 6)
+fmt = f".{precision}f"
+
 metodo_sel = st.sidebar.selectbox("Selecciona Método",
     ["Bisección", "Newton-Raphson", "Interpolación Lagrange", "Diferencias Centrales", "Rectángulo Medio", "Trapecios", "Simpson 1/3", "Simpson 3/8", "Montecarlo", "Montecarlo Doble"])
 
@@ -684,7 +687,7 @@ with col2:
             # Evaluación y Error
             x_ev_sym = sp.sympify(x_eval)
             val_p = poly.subs(sp.symbols('x'), x_ev_sym)
-            st.info(f"Evaluación: P({x_eval}) = {float(val_p.evalf()):.6f}")
+            st.info(f"Evaluación: P({x_eval}) = {float(val_p.evalf()):{fmt}}")
             st.latex(f"P({sp.latex(x_ev_sym)}) = {sp.latex(sp.simplify(val_p))}")
             
             if func_teorica:
@@ -692,7 +695,7 @@ with col2:
                 v_real = evaluar_f(func_teorica, x_eval_float)
                 if v_real is not None:
                     err_local = abs(float(val_p.evalf()) - v_real)
-                    st.metric("Error Local  |P(x) − f(x)|", f"{err_local:.8f}")
+                    st.metric("Error Local  |P(x) − f(x)|", f"{err_local:{fmt}}")
 
             # Gráfico (solo si no hay variables b, c, etc en y)
             if all(sp.sympify(y).is_number for y in y_in_strs):
@@ -794,7 +797,7 @@ with col2:
                     ))
                     fig.update_layout(
                         template="plotly_dark",
-                        title=f"Simpson 1/3 — ∫f(x)dx ≈ {integral:.6f}",
+                        title=f"Simpson 1/3 — ∫f(x)dx ≈ {integral:{fmt}}",
                         xaxis_title="x", yaxis_title="f(x)"
                     )
                     st.plotly_chart(fig, use_container_width=True)
@@ -852,7 +855,7 @@ with col2:
                     ))
                     fig.update_layout(
                         template="plotly_dark",
-                        title=f"Simpson 3/8 — ∫f(x)dx ≈ {integral:.6f}",
+                        title=f"Simpson 3/8 — ∫f(x)dx ≈ {integral:{fmt}}",
                         xaxis_title="x", yaxis_title="f(x)"
                     )
                     st.plotly_chart(fig, use_container_width=True)
@@ -918,7 +921,7 @@ with col2:
                     ))
                     fig.update_layout(
                         template="plotly_dark",
-                        title=f"Trapecios — ∫f(x)dx ≈ {integral:.6f}",
+                        title=f"Trapecios — ∫f(x)dx ≈ {integral:{fmt}}",
                         xaxis_title="x", yaxis_title="f(x)"
                     )
                     st.plotly_chart(fig, use_container_width=True)
@@ -987,7 +990,7 @@ with col2:
                     ))
                     fig.update_layout(
                         template="plotly_dark",
-                        title=f"Rectángulo Medio — ∫f(x)dx ≈ {integral:.6f}",
+                        title=f"Rectángulo Medio — ∫f(x)dx ≈ {integral:{fmt}}",
                         xaxis_title="x", yaxis_title="f(x)"
                     )
                     st.plotly_chart(fig, use_container_width=True)
@@ -1021,15 +1024,15 @@ with col2:
             
             st.subheader("Resultado")
             c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Integral ≈", f"{integral:.6f}")
+            c1.metric("Integral ≈", f"{integral:{fmt}}")
             if exact_val is not None:
-                c2.metric("Valor Exacto (Scipy)", f"{exact_val:.6f}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
+                c2.metric("Valor Exacto (Scipy)", f"{exact_val:{fmt}}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
             else:
                 c2.metric("Valor Exacto", "N/A")
-            c3.metric("Desv. Estándar (S)", f"{s_dev:.6f}")
+            c3.metric("Desv. Estándar (S)", f"{s_dev:{fmt}}")
             c4.metric("Error Estándar (EE)", formatear_error(err_est))
-            c5.metric(f"IC {conf_mc}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
-            st.write(f"**Área/Volumen Región:** {vol:.4f}")
+            c5.metric(f"IC {conf_mc}%", f"[{ic_low:{fmt}}, {ic_up:{fmt}}]")
+            st.write(f"**Área/Volumen Región:** {vol:{fmt}}")
             st.dataframe(df_tabla, use_container_width=True)
             
             # --- TABS PARA GRÁFICOS AVANZADOS ---
@@ -1127,15 +1130,15 @@ with col2:
             
             st.subheader("Resultado")
             c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Integral Acumulada ≈", f"{integral:.6f}")
+            c1.metric("Integral Acumulada ≈", f"{integral:{fmt}}")
             if exact_val is not None:
-                c2.metric("Valor Exacto (Scipy)", f"{exact_val:.6f}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
+                c2.metric("Valor Exacto (Scipy)", f"{exact_val:{fmt}}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
             else:
                 c2.metric("Valor Exacto", "N/A")
-            c3.metric("Desv. Estándar (S)", f"{s_dev:.6f}")
+            c3.metric("Desv. Estándar (S)", f"{s_dev:{fmt}}")
             c4.metric("Error Estándar (EE)", formatear_error(err_est))
-            c5.metric(f"IC {conf_mc2}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
-            st.write(f"**Área Integración:** {area_xy:.4f}")
+            c5.metric(f"IC {conf_mc2}%", f"[{ic_low:{fmt}}, {ic_up:{fmt}}]")
+            st.write(f"**Área Integración:** {area_xy:{fmt}}")
             st.dataframe(df_tabla, use_container_width=True)
             
             tab1, tab2, tab3 = st.tabs(["Muestreo 3D", "Convergencia y Confianza", "Distribución de f(x,y)"])
