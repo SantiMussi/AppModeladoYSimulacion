@@ -409,6 +409,7 @@ def metodo_montecarlo(f_str, a, b, n, conf_level=95.0, seed=None, antithetic=Fal
     integral = vol * np.mean(y_valid)
     
     var = np.var(y_valid, ddof=1) if valid_n > 1 else 0.0
+    std_dev = np.sqrt(var)
     std_error = vol * np.sqrt(var / valid_n)
     
     alpha = 1 - (conf_level / 100.0)
@@ -427,7 +428,7 @@ def metodo_montecarlo(f_str, a, b, n, conf_level=95.0, seed=None, antithetic=Fal
     df_tabla = pd.DataFrame(tabla)
     
     invalid_count = n - valid_n
-    return integral, std_error, vol, ic_lower, ic_upper, df_tabla, x_rand, y_eval, invalid_count
+    return integral, std_error, std_dev, vol, ic_lower, ic_upper, df_tabla, x_rand, y_eval, invalid_count
 
 def metodo_montecarlo_doble(f_str, a_x, b_x, a_y, b_y, n, conf_level=95.0, seed=None, antithetic=False):
     if seed is not None:
@@ -458,6 +459,7 @@ def metodo_montecarlo_doble(f_str, a_x, b_x, a_y, b_y, n, conf_level=95.0, seed=
     integral = area * np.mean(z_valid)
     
     var = np.var(z_valid, ddof=1) if valid_n > 1 else 0.0
+    std_dev = np.sqrt(var)
     std_error = area * np.sqrt(var / valid_n)
     
     alpha = 1 - (conf_level / 100.0)
@@ -477,7 +479,7 @@ def metodo_montecarlo_doble(f_str, a_x, b_x, a_y, b_y, n, conf_level=95.0, seed=
     df_tabla = pd.DataFrame(tabla)
     
     invalid_count = n - valid_n
-    return integral, std_error, area, ic_lower, ic_upper, df_tabla, x_rand, y_rand, z_eval, invalid_count
+    return integral, std_error, std_dev, area, ic_lower, ic_upper, df_tabla, x_rand, y_rand, z_eval, invalid_count
 
 
 # --- MÉTODOS DE RAÍCES ---
@@ -993,7 +995,7 @@ with col2:
                 st.error("No se pudo evaluar f(x) en el intervalo. Verificá la función.")
 
         elif metodo_sel == "Montecarlo":
-            integral, err_est, vol, ic_low, ic_up, df_tabla, x_r, y_r, invalid_count = metodo_montecarlo(
+            integral, err_est, s_dev, vol, ic_low, ic_up, df_tabla, x_r, y_r, invalid_count = metodo_montecarlo(
                 func_input, a_mc, b_mc, n_mc, conf_mc, seed=seed_mc, antithetic=antithetic_mc)
             
             if invalid_count > 0:
@@ -1018,15 +1020,16 @@ with col2:
                 st.latex(r"IC = I \pm z_{\alpha/2} EE")
             
             st.subheader("Resultado")
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Integral Acumulada ≈", f"{integral:.6f}")
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Integral ≈", f"{integral:.6f}")
             if exact_val is not None:
                 c2.metric("Valor Exacto (Scipy)", f"{exact_val:.6f}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
             else:
                 c2.metric("Valor Exacto", "N/A")
-            c3.metric("Error Estándar (EE)", formatear_error(err_est))
-            c4.metric(f"IC {conf_mc}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
-            st.write(f"**Área S (Volumen):** {vol:.4f}")
+            c3.metric("Desv. Estándar (S)", f"{s_dev:.6f}")
+            c4.metric("Error Estándar (EE)", formatear_error(err_est))
+            c5.metric(f"IC {conf_mc}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
+            st.write(f"**Área/Volumen Región:** {vol:.4f}")
             st.dataframe(df_tabla, use_container_width=True)
             
             # --- TABS PARA GRÁFICOS AVANZADOS ---
@@ -1099,7 +1102,7 @@ with col2:
                 st.plotly_chart(fig_hist, use_container_width=True)
 
         elif metodo_sel == "Montecarlo Doble":
-            integral, err_est, area_xy, ic_low, ic_up, df_tabla, x_r, y_r, z_r, invalid_count = metodo_montecarlo_doble(
+            integral, err_est, s_dev, area_xy, ic_low, ic_up, df_tabla, x_r, y_r, z_r, invalid_count = metodo_montecarlo_doble(
                 func_input, a_x_mc, b_x_mc, a_y_mc, b_y_mc, n_mc2, conf_mc2, seed=seed_mc2, antithetic=antithetic_mc2)
             
             if invalid_count > 0:
@@ -1123,15 +1126,16 @@ with col2:
                 st.latex(r"IC = I \pm z_{\alpha/2} EE")
             
             st.subheader("Resultado")
-            c1, c2, c3, c4 = st.columns(4)
+            c1, c2, c3, c4, c5 = st.columns(5)
             c1.metric("Integral Acumulada ≈", f"{integral:.6f}")
             if exact_val is not None:
                 c2.metric("Valor Exacto (Scipy)", f"{exact_val:.6f}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
             else:
                 c2.metric("Valor Exacto", "N/A")
-            c3.metric("Error Estándar (EE)", formatear_error(err_est))
-            c4.metric(f"IC {conf_mc2}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
-            st.write(f"**Área Integración (S):** {area_xy:.4f}")
+            c3.metric("Desv. Estándar (S)", f"{s_dev:.6f}")
+            c4.metric("Error Estándar (EE)", formatear_error(err_est))
+            c5.metric(f"IC {conf_mc2}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
+            st.write(f"**Área Integración:** {area_xy:.4f}")
             st.dataframe(df_tabla, use_container_width=True)
             
             tab1, tab2, tab3 = st.tabs(["Muestreo 3D", "Convergencia y Confianza", "Distribución de f(x,y)"])
