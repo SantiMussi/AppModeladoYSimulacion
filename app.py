@@ -5,6 +5,7 @@ import pandas as pd
 import re
 import sympy as sp
 import scipy.stats as st_stats
+import scipy.integrate as spi
 import streamlit.components.v1 as components
 
 # Configuración de la página
@@ -942,60 +943,190 @@ with col2:
 
         elif metodo_sel == "Montecarlo":
             integral, err_est, vol, ic_low, ic_up, df_tabla, x_r, y_r = metodo_montecarlo(func_input, a_mc, b_mc, n_mc, conf_mc)
+            
+            # --- CÁLCULO DE ERROR VERDADERO CON SCIPY ---
+            def func_scipy(x):
+                val = evaluar_f(func_input, x)
+                return val if val is not None else 0.0
+            
+            try:
+                exact_val, exact_err = spi.quad(func_scipy, a_mc, b_mc)
+                true_error_perc = abs(integral - exact_val) / abs(exact_val) * 100 if exact_val != 0 else 0.0
+            except:
+                exact_val, true_error_perc = None, None
+
             if mostrar_formulas:
                 st.subheader("Fórmulas")
                 st.latex(r"I \approx V \cdot \frac{1}{N}\sum_{i=1}^{N} f(x_i)")
                 st.latex(r"\text{Var} = \frac{1}{N-1}\sum_{i=1}^{N} \left(f(x_i) - \bar{f}\right)^2")
                 st.latex(r"EE = V \cdot \sqrt{\frac{\text{Var}}{N}}")
                 st.latex(r"IC = I \pm z_{\alpha/2} EE")
+            
             st.subheader("Resultado")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Integral ≈", f"{integral:.6f}")
-            c2.metric("Error Estándar (EE)", f"{err_est:.6e}")
-            c3.metric(f"IC {conf_mc}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Integral Acumulada ≈", f"{integral:.6f}")
+            if exact_val is not None:
+                c2.metric("Valor Exacto (Scipy)", f"{exact_val:.6f}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
+            else:
+                c2.metric("Valor Exacto", "N/A")
+            c3.metric("Error Estándar (EE)", f"{err_est:.6e}")
+            c4.metric(f"IC {conf_mc}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
             st.write(f"**Área S (Volumen):** {vol:.4f}")
             st.dataframe(df_tabla, use_container_width=True)
             
-            fig = go.Figure()
-            x_plot = np.linspace(a_mc, b_mc, 300)
-            # Evaluate using array for speed
-            y_plot = evaluar_f_array(func_input, x_plot)
-            fig.add_trace(go.Scatter(x=x_plot, y=y_plot, name="f(x)", line=dict(color='#86e012')))
+            # --- TABS PARA GRÁFICOS AVANZADOS ---
+            tab1, tab2, tab3 = st.tabs(["Muestreo y Función", "Convergencia y Confianza", "Distribución de f(x)"])
             
-            # Submuestreo para graficar rápido (max 1000 ptos)
-            n_plot = min(n_mc, 1000)
-            fig.add_trace(go.Scatter(x=x_r[:n_plot], y=y_r[:n_plot], mode='markers', name="Muestras", marker=dict(size=4, color='rgba(255,255,255,0.4)')))
-            fig.update_layout(template="plotly_dark", title=f"Montecarlo — ∫f(x)dx ≈ {integral:.6f}")
-            st.plotly_chart(fig, use_container_width=True)
+            with tab1:
+                fig = go.Figure()
+                x_plot = np.linspace(a_mc, b_mc, 300)
+                y_plot = evaluar_f_array(func_input, x_plot)
+                fig.add_trace(go.Scatter(x=x_plot, y=y_plot, name="f(x)", line=dict(color='#86e012')))
+                
+                n_plot = min(n_mc, 1000)
+                fig.add_trace(go.Scatter(x=x_r[:n_plot], y=y_r[:n_plot], mode='markers', name="Muestras", marker=dict(size=4, color='rgba(255,255,255,0.4)')))
+                fig.update_layout(template="plotly_dark", title=f"Montecarlo — Función Integrada")
+                st.plotly_chart(fig, use_container_width=True)
+                
+            with tab2:
+                # Calculo de Convergencia Vectorizado
+                cum_mean = np.cumsum(y_r) / np.arange(1, n_mc + 1)
+                cum_integral = vol * cum_mean
+                
+                if n_mc > 1:
+                    cum_var = pd.Series(y_r).expanding().var(ddof=1).fillna(0).values
+                    cum_std_error = vol * np.sqrt(cum_var / np.arange(1, n_mc + 1))
+                else:
+                    cum_std_error = np.zeros(n_mc)
+                
+                alpha = 1 - (conf_mc / 100.0)
+                z_val = st_stats.norm.ppf(1 - alpha/2)
+                margin = z_val * cum_std_error
+                
+                fig_conv = go.Figure()
+                
+                if n_mc > 5000:
+                    idx = np.unique(np.geomspace(1, n_mc, 1000).astype(int)) - 1
+                else:
+                    idx = np.arange(n_mc)
+                
+                n_idx = idx + 1
+                
+                if exact_val is not None:
+                    fig_conv.add_trace(go.Scatter(x=n_idx, y=np.full_like(n_idx, exact_val, dtype=float), mode='lines', name='Valor Exacto', line=dict(color='white', dash='dash')))
+
+                fig_conv.add_trace(go.Scatter(
+                    x=n_idx, y=cum_integral[idx] + margin[idx],
+                    mode='lines', line=dict(color='rgba(255, 75, 75, 0)'),
+                    name='Límite Superior', showlegend=False
+                ))
+                fig_conv.add_trace(go.Scatter(
+                    x=n_idx, y=cum_integral[idx] - margin[idx],
+                    mode='lines', fill='tonexty', fillcolor='rgba(255, 75, 75, 0.2)',
+                    line=dict(color='rgba(255, 75, 75, 0)'),
+                    name=f'Intervalo Confianza {conf_mc}%'
+                ))
+                fig_conv.add_trace(go.Scatter(x=n_idx, y=cum_integral[idx], mode='lines', name='Valor Estimado', line=dict(color='#00cfcc', width=2)))
+                
+                fig_conv.update_layout(template="plotly_dark", title="Convergencia de la Aproximación (N progresivo)", xaxis_title="Número de Muestras (N)", yaxis_title="Integral Estimada")
+                st.plotly_chart(fig_conv, use_container_width=True)
+
+            with tab3:
+                fig_hist = go.Figure(data=[go.Histogram(x=y_r, nbinsx=50, marker_color='#e03ce6', opacity=0.75)])
+                fig_hist.update_layout(template="plotly_dark", title="Distribución de Evaluaciones Aleatorias f(x)", xaxis_title="f(x)", yaxis_title="Frecuencia")
+                st.plotly_chart(fig_hist, use_container_width=True)
 
         elif metodo_sel == "Montecarlo Doble":
             integral, err_est, area_xy, ic_low, ic_up, df_tabla, x_r, y_r, z_r = metodo_montecarlo_doble(func_input, a_x_mc, b_x_mc, a_y_mc, b_y_mc, n_mc2, conf_mc2)
+            
+            # --- CÁLCULO DE ERROR VERDADERO DOBLE CON SCIPY ---
+            def func_scipy_dbl(y, x):
+                return float(evaluar_f_array(func_input, np.array([x]), np.array([y]))[0])
+            
+            try:
+                exact_val, exact_err = spi.dblquad(func_scipy_dbl, a_x_mc, b_x_mc, lambda x: a_y_mc, lambda x: b_y_mc)
+                true_error_perc = abs(integral - exact_val) / abs(exact_val) * 100 if exact_val != 0 else 0.0
+            except:
+                exact_val, true_error_perc = None, None
+                
             if mostrar_formulas:
                 st.subheader("Fórmulas")
                 st.latex(r"I \approx S \cdot \frac{1}{N}\sum_{i=1}^{N} f(x_i, y_i)")
                 st.latex(r"\text{Var} = \frac{1}{N-1}\sum_{i=1}^{N} \left(f(x_i, y_i) - \bar{f}\right)^2")
                 st.latex(r"EE = S \cdot \sqrt{\frac{\text{Var}}{N}}")
                 st.latex(r"IC = I \pm z_{\alpha/2} EE")
+            
             st.subheader("Resultado")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Integral ≈", f"{integral:.6f}")
-            c2.metric("Error Estándar (EE)", f"{err_est:.6e}")
-            c3.metric(f"IC {conf_mc2}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Integral Acumulada ≈", f"{integral:.6f}")
+            if exact_val is not None:
+                c2.metric("Valor Exacto (Scipy)", f"{exact_val:.6f}", f"Err: {true_error_perc:.4f}%", delta_color="inverse")
+            else:
+                c2.metric("Valor Exacto", "N/A")
+            c3.metric("Error Estándar (EE)", f"{err_est:.6e}")
+            c4.metric(f"IC {conf_mc2}%", f"[{ic_low:.4f}, {ic_up:.4f}]")
             st.write(f"**Área Integración (S):** {area_xy:.4f}")
             st.dataframe(df_tabla, use_container_width=True)
             
-            fig = go.Figure()
-            # Malla para superficie
-            x_m = np.linspace(a_x_mc, b_x_mc, 40)
-            y_m = np.linspace(a_y_mc, b_y_mc, 40)
-            X, Y = np.meshgrid(x_m, y_m)
-            Z = evaluar_f_array(func_input, X.ravel(), Y.ravel()).reshape(X.shape)
-            fig.add_trace(go.Surface(x=X, y=Y, z=Z, colorscale='Viridis', opacity=0.8, name="f(x,y)"))
+            tab1, tab2, tab3 = st.tabs(["Muestreo 3D", "Convergencia y Confianza", "Distribución de f(x,y)"])
             
-            n_plot = min(n_mc2, 500)
-            fig.add_trace(go.Scatter3d(x=x_r[:n_plot], y=y_r[:n_plot], z=z_r[:n_plot], mode='markers', name="Muestras", marker=dict(size=3, color='red')))
-            fig.update_layout(template="plotly_dark", title=f"Montecarlo Doble — ∬f(x,y)dxdy ≈ {integral:.6f}")
-            st.plotly_chart(fig, use_container_width=True)
+            with tab1:
+                fig = go.Figure()
+                x_m = np.linspace(a_x_mc, b_x_mc, 40)
+                y_m = np.linspace(a_y_mc, b_y_mc, 40)
+                X, Y = np.meshgrid(x_m, y_m)
+                Z = evaluar_f_array(func_input, X.ravel(), Y.ravel()).reshape(X.shape)
+                fig.add_trace(go.Surface(x=X, y=Y, z=Z, colorscale='Viridis', opacity=0.8, name="f(x,y)"))
+                
+                n_plot = min(n_mc2, 500)
+                fig.add_trace(go.Scatter3d(x=x_r[:n_plot], y=y_r[:n_plot], z=z_r[:n_plot], mode='markers', name="Muestras", marker=dict(size=3, color='red')))
+                fig.update_layout(template="plotly_dark", title=f"Montecarlo Doble — Visualización 3D")
+                st.plotly_chart(fig, use_container_width=True)
+
+            with tab2:
+                cum_mean = np.cumsum(z_r) / np.arange(1, n_mc2 + 1)
+                cum_integral = area_xy * cum_mean
+                
+                if n_mc2 > 1:
+                    cum_var = pd.Series(z_r).expanding().var(ddof=1).fillna(0).values
+                    cum_std_error = area_xy * np.sqrt(cum_var / np.arange(1, n_mc2 + 1))
+                else:
+                    cum_std_error = np.zeros(n_mc2)
+                
+                alpha = 1 - (conf_mc2 / 100.0)
+                z_val = st_stats.norm.ppf(1 - alpha/2)
+                margin = z_val * cum_std_error
+                
+                fig_conv = go.Figure()
+                if n_mc2 > 5000:
+                    idx = np.unique(np.geomspace(1, n_mc2, 1000).astype(int)) - 1
+                else:
+                    idx = np.arange(n_mc2)
+                n_idx = idx + 1
+                
+                if exact_val is not None:
+                    fig_conv.add_trace(go.Scatter(x=n_idx, y=np.full_like(n_idx, exact_val, dtype=float), mode='lines', name='Valor Exacto', line=dict(color='white', dash='dash')))
+
+                fig_conv.add_trace(go.Scatter(
+                    x=n_idx, y=cum_integral[idx] + margin[idx],
+                    mode='lines', line=dict(color='rgba(255, 75, 75, 0)'),
+                    name='Límite Superior', showlegend=False
+                ))
+                fig_conv.add_trace(go.Scatter(
+                    x=n_idx, y=cum_integral[idx] - margin[idx],
+                    mode='lines', fill='tonexty', fillcolor='rgba(255, 75, 75, 0.2)',
+                    line=dict(color='rgba(255, 75, 75, 0)'),
+                    name=f'Intervalo Confianza {conf_mc2}%'
+                ))
+                fig_conv.add_trace(go.Scatter(x=n_idx, y=cum_integral[idx], mode='lines', name='Valor Estimado', line=dict(color='#00cfcc', width=2)))
+                
+                fig_conv.update_layout(template="plotly_dark", title="Convergencia Iterativa de Montecarlo Doble", xaxis_title="Número de Muestras (N)", yaxis_title="Integral Estimada")
+                st.plotly_chart(fig_conv, use_container_width=True)
+
+            with tab3:
+                fig_hist = go.Figure(data=[go.Histogram(x=z_r, nbinsx=50, marker_color='#00cfcc', opacity=0.75)])
+                fig_hist.update_layout(template="plotly_dark", title="Distribución de Evaluaciones Aleatorias f(x,y)", xaxis_title="f(x,y)", yaxis_title="Frecuencia")
+                st.plotly_chart(fig_hist, use_container_width=True)
 
         else: # Raíces
             if mostrar_formulas:
