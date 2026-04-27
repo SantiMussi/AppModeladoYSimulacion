@@ -527,6 +527,178 @@ def metodo_newton_raphson(f_str, x0, tol, max_iter):
         x_n = x_next
     return pd.DataFrame(history), "limite", x_n, err
 
+# --- RUNGE-KUTTA: EVALUADOR DE EDO f(x, y) ---
+
+def evaluar_edo(f_str, x_val, y_val):
+    """Evalúa f(x, y) para EDOs dy/dx = f(x, y)"""
+    try:
+        f_proc = f_str.replace("^", "**").replace("sen", "sin").replace("ln", "log")
+        f_proc = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', f_proc)
+        contexto = {
+            "np": np, "x": x_val, "y": y_val, "t": x_val,
+            "sin": np.sin, "cos": np.cos, "tan": np.tan,
+            "exp": np.exp, "log": np.log, "sqrt": np.sqrt,
+            "pi": np.pi, "e": np.e, "abs": abs
+        }
+        res = eval(f_proc, {"__builtins__": None}, contexto)
+        if np.isnan(float(res)) or np.isinf(float(res)):
+            return None
+        return float(res)
+    except Exception:
+        return None
+
+
+def metodo_euler(f_str, x0, y0, h, n_steps):
+    """Método de Euler (RK1)"""
+    tabla = []
+    x, y = x0, y0
+    for i in range(n_steps + 1):
+        f_val = evaluar_edo(f_str, x, y) if i < n_steps else None
+        row = {"i": i, "xᵢ": x, "yᵢ": y}
+        if f_val is not None:
+            row["f(xᵢ,yᵢ)"] = f_val
+            row["yᵢ₊₁"] = y + h * f_val
+        tabla.append(row)
+        if i < n_steps and f_val is not None:
+            y = y + h * f_val
+            x = x + h
+        elif i < n_steps:
+            break
+    xs = [r["xᵢ"] for r in tabla]
+    ys = [r["yᵢ"] for r in tabla]
+    return pd.DataFrame(tabla), xs, ys
+
+
+def metodo_rk2(f_str, x0, y0, h, n_steps, variante="Heun"):
+    """Método de Runge-Kutta Orden 2 (Heun, Punto Medio, Ralston)"""
+    if variante == "Heun":
+        a2, b1, b2, p1 = 1.0, 0.5, 0.5, 1.0
+    elif variante == "Punto Medio":
+        a2, b1, b2, p1 = 0.5, 0.0, 1.0, 0.5
+    else:  # Ralston
+        a2, b1, b2, p1 = 2/3, 0.25, 0.75, 2/3
+
+    tabla = []
+    x, y = x0, y0
+    for i in range(n_steps + 1):
+        row = {"i": i, "xᵢ": x, "yᵢ": y}
+        if i < n_steps:
+            k1 = evaluar_edo(f_str, x, y)
+            if k1 is None: break
+            k2 = evaluar_edo(f_str, x + p1 * h, y + p1 * h * k1)
+            if k2 is None: break
+            row["k₁"] = k1
+            row["k₂"] = k2
+            y_next = y + h * (b1 * k1 + b2 * k2)
+            row["yᵢ₊₁"] = y_next
+            y = y_next
+            x = x + h
+        tabla.append(row)
+    if len(tabla) <= n_steps:
+        tabla.append({"i": len(tabla), "xᵢ": x, "yᵢ": y})
+    xs = [r["xᵢ"] for r in tabla]
+    ys = [r["yᵢ"] for r in tabla]
+    return pd.DataFrame(tabla), xs, ys
+
+
+def metodo_rk4(f_str, x0, y0, h, n_steps):
+    """Método de Runge-Kutta Orden 4 (Clásico)"""
+    tabla = []
+    x, y = x0, y0
+    for i in range(n_steps + 1):
+        row = {"i": i, "xᵢ": x, "yᵢ": y}
+        if i < n_steps:
+            k1 = evaluar_edo(f_str, x, y)
+            if k1 is None: break
+            k2 = evaluar_edo(f_str, x + h/2, y + h/2 * k1)
+            if k2 is None: break
+            k3 = evaluar_edo(f_str, x + h/2, y + h/2 * k2)
+            if k3 is None: break
+            k4 = evaluar_edo(f_str, x + h, y + h * k3)
+            if k4 is None: break
+            row["k₁"] = k1
+            row["k₂"] = k2
+            row["k₃"] = k3
+            row["k₄"] = k4
+            phi = (k1 + 2*k2 + 2*k3 + k4) / 6
+            row["φ"] = phi
+            y_next = y + h * phi
+            row["yᵢ₊₁"] = y_next
+            y = y_next
+            x = x + h
+        tabla.append(row)
+    if len(tabla) <= n_steps:
+        tabla.append({"i": len(tabla), "xᵢ": x, "yᵢ": y})
+    xs = [r["xᵢ"] for r in tabla]
+    ys = [r["yᵢ"] for r in tabla]
+    return pd.DataFrame(tabla), xs, ys
+
+
+def metodo_rk4_sistema(f1_str, f2_str, x0, y1_0, y2_0, h, n_steps):
+    """RK4 para sistemas de 2 EDOs: dy1/dx = f1(x,y1,y2), dy2/dx = f2(x,y1,y2)"""
+    def eval_sys(f_str, x_val, y1_val, y2_val):
+        try:
+            f_proc = f_str.replace("^", "**").replace("sen", "sin").replace("ln", "log")
+            f_proc = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', f_proc)
+            ctx = {
+                "np": np, "x": x_val, "t": x_val,
+                "y1": y1_val, "y2": y2_val, "y": y1_val, "z": y2_val,
+                "sin": np.sin, "cos": np.cos, "tan": np.tan,
+                "exp": np.exp, "log": np.log, "sqrt": np.sqrt,
+                "pi": np.pi, "e": np.e, "abs": abs
+            }
+            res = eval(f_proc, {"__builtins__": None}, ctx)
+            return float(res)
+        except:
+            return None
+
+    tabla = []
+    x, y1, y2 = x0, y1_0, y2_0
+    for i in range(n_steps + 1):
+        row = {"i": i, "xᵢ": x, "y₁ᵢ": y1, "y₂ᵢ": y2}
+        if i < n_steps:
+            k1_1 = eval_sys(f1_str, x, y1, y2)
+            k1_2 = eval_sys(f2_str, x, y1, y2)
+            if k1_1 is None or k1_2 is None: break
+            k2_1 = eval_sys(f1_str, x+h/2, y1+h/2*k1_1, y2+h/2*k1_2)
+            k2_2 = eval_sys(f2_str, x+h/2, y1+h/2*k1_1, y2+h/2*k1_2)
+            if k2_1 is None or k2_2 is None: break
+            k3_1 = eval_sys(f1_str, x+h/2, y1+h/2*k2_1, y2+h/2*k2_2)
+            k3_2 = eval_sys(f2_str, x+h/2, y1+h/2*k2_1, y2+h/2*k2_2)
+            if k3_1 is None or k3_2 is None: break
+            k4_1 = eval_sys(f1_str, x+h, y1+h*k3_1, y2+h*k3_2)
+            k4_2 = eval_sys(f2_str, x+h, y1+h*k3_1, y2+h*k3_2)
+            if k4_1 is None or k4_2 is None: break
+            row["k₁⁽¹⁾"]=k1_1; row["k₂⁽¹⁾"]=k2_1; row["k₃⁽¹⁾"]=k3_1; row["k₄⁽¹⁾"]=k4_1
+            row["k₁⁽²⁾"]=k1_2; row["k₂⁽²⁾"]=k2_2; row["k₃⁽²⁾"]=k3_2; row["k₄⁽²⁾"]=k4_2
+            y1 = y1 + h/6*(k1_1 + 2*k2_1 + 2*k3_1 + k4_1)
+            y2 = y2 + h/6*(k1_2 + 2*k2_2 + 2*k3_2 + k4_2)
+            x = x + h
+        tabla.append(row)
+    if len(tabla) <= n_steps:
+        tabla.append({"i": len(tabla), "xᵢ": x, "y₁ᵢ": y1, "y₂ᵢ": y2})
+    xs = [r["xᵢ"] for r in tabla]
+    y1s = [r["y₁ᵢ"] for r in tabla]
+    y2s = [r["y₂ᵢ"] for r in tabla]
+    return pd.DataFrame(tabla), xs, y1s, y2s
+
+
+def obtener_solucion_exacta_edo(f_str, x0, y0, xs_eval):
+    """Obtiene solución exacta usando scipy.integrate.solve_ivp"""
+    def f_scipy(t, y):
+        val = evaluar_edo(f_str, t, y[0])
+        return [val if val is not None else 0.0]
+    try:
+        from scipy.integrate import solve_ivp
+        x_max = max(xs_eval)
+        sol = solve_ivp(f_scipy, [x0, x_max], [y0], t_eval=xs_eval, method='RK45', rtol=1e-12, atol=1e-14)
+        if sol.success:
+            return sol.y[0]
+    except:
+        pass
+    return None
+
+
 # --- INTERFAZ ---
 
 st.sidebar.header("Configuración")
@@ -535,7 +707,7 @@ precision = st.sidebar.slider("Precisión Decimal", 1, 12, 6)
 fmt = f".{precision}f"
 
 metodo_sel = st.sidebar.selectbox("Selecciona Método",
-    ["Bisección", "Newton-Raphson", "Interpolación Lagrange", "Diferencias Centrales", "Rectángulo Medio", "Trapecios", "Simpson 1/3", "Simpson 3/8", "Montecarlo", "Montecarlo Doble"])
+    ["Bisección", "Newton-Raphson", "Interpolación Lagrange", "Diferencias Centrales", "Rectángulo Medio", "Trapecios", "Simpson 1/3", "Simpson 3/8", "Montecarlo", "Montecarlo Doble", "Runge-Kutta"])
 
 col1, col2 = st.columns([1, 2])
 
@@ -648,6 +820,31 @@ with col1:
         except:
             st.error("Límites inválidos.")
             a_x_mc, b_x_mc, a_y_mc, b_y_mc = 0.0, 1.0, 0.0, 2.0
+    elif metodo_sel == "Runge-Kutta":
+        rk_tipo = st.radio("Tipo de EDO", ["EDO Simple", "Sistema de 2 EDOs"], horizontal=True)
+        if rk_tipo == "EDO Simple":
+            rk_orden = st.selectbox("Orden del Método", ["Euler (Orden 1)", "RK2 (Orden 2)", "RK4 (Orden 4)"])
+            rk_variante = None
+            if "RK2" in rk_orden:
+                rk_variante = st.selectbox("Variante RK2", ["Heun", "Punto Medio", "Ralston"])
+            func_input = st.text_input("dy/dx = f(x, y):", value="x + y", help="Usá 'x' e 'y' como variables. Ej: x + y, -2*x*y, sin(x)*y")
+            col_ci1, col_ci2 = st.columns(2)
+            rk_x0 = col_ci1.number_input("x₀ (valor inicial)", value=0.0, format="%.6f")
+            rk_y0 = col_ci2.number_input("y₀ = y(x₀)", value=1.0, format="%.6f")
+            col_h, col_n = st.columns(2)
+            rk_h = col_h.number_input("Paso h", value=0.1, min_value=0.0001, format="%.6f")
+            rk_n = int(col_n.number_input("Nº de pasos", value=10, min_value=1, step=1))
+            rk_exacta = st.text_input("Solución exacta y(x) (opcional):", value="", help="Ej: 2*exp(x) - x - 1. Dejá vacío para comparar con scipy.")
+        else:
+            func_input_1 = st.text_input("dy₁/dx = f₁(x, y₁, y₂):", value="y2", help="Usá x, y1, y2 (o y, z)")
+            func_input_2 = st.text_input("dy₂/dx = f₂(x, y₁, y₂):", value="-y1", help="Usá x, y1, y2 (o y, z)")
+            col_ci1, col_ci2, col_ci3 = st.columns(3)
+            rk_x0 = col_ci1.number_input("x₀", value=0.0, format="%.6f")
+            rk_y1_0 = col_ci2.number_input("y₁(x₀)", value=0.0, format="%.6f")
+            rk_y2_0 = col_ci3.number_input("y₂(x₀)", value=1.0, format="%.6f")
+            col_h, col_n = st.columns(2)
+            rk_h = col_h.number_input("Paso h", value=0.1, min_value=0.0001, format="%.6f")
+            rk_n = int(col_n.number_input("Nº de pasos", value=10, min_value=1, step=1))
     else:
         func_input = st.text_input("f(x):", value="x**2 - 2")
         if metodo_sel == "Bisección":
@@ -1207,6 +1404,199 @@ with col2:
                 fig_hist = go.Figure(data=[go.Histogram(x=z_r, nbinsx=50, marker_color='#00cfcc', opacity=0.75)])
                 fig_hist.update_layout(template="plotly_dark", title="Distribución de Evaluaciones Aleatorias f(x,y)", xaxis_title="f(x,y)", yaxis_title="Frecuencia")
                 st.plotly_chart(fig_hist, use_container_width=True)
+
+        elif metodo_sel == "Runge-Kutta":
+            if rk_tipo == "EDO Simple":
+                # --- FÓRMULAS ---
+                if mostrar_formulas:
+                    st.subheader("Fórmulas")
+                    if "Euler" in rk_orden:
+                        st.latex(r"y_{i+1} = y_i + h \cdot f(x_i, y_i)")
+                        st.latex(r"\text{Error local: } O(h^2) \quad | \quad \text{Error global: } O(h)")
+                    elif "RK2" in rk_orden:
+                        st.latex(r"y_{i+1} = y_i + h \left( b_1 k_1 + b_2 k_2 \right)")
+                        st.latex(r"k_1 = f(x_i,\; y_i)")
+                        st.latex(r"k_2 = f(x_i + p_1 h,\; y_i + p_1 h \, k_1)")
+                        if rk_variante == "Heun":
+                            st.info("**Heun:** b₁=½, b₂=½, p₁=1")
+                        elif rk_variante == "Punto Medio":
+                            st.info("**Punto Medio:** b₁=0, b₂=1, p₁=½")
+                        else:
+                            st.info("**Ralston:** b₁=¼, b₂=¾, p₁=⅔")
+                        st.latex(r"\text{Error local: } O(h^3) \quad | \quad \text{Error global: } O(h^2)")
+                    else:  # RK4
+                        st.latex(r"y_{i+1} = y_i + h \cdot \varphi(x_i, y_i, h)")
+                        st.latex(r"\varphi = \frac{1}{6}(k_1 + 2k_2 + 2k_3 + k_4)")
+                        st.latex(r"k_1 = f(x_i,\; y_i)")
+                        st.latex(r"k_2 = f\!\left(x_i + \tfrac{h}{2},\; y_i + \tfrac{h}{2}k_1\right)")
+                        st.latex(r"k_3 = f\!\left(x_i + \tfrac{h}{2},\; y_i + \tfrac{h}{2}k_2\right)")
+                        st.latex(r"k_4 = f(x_i + h,\; y_i + h \, k_3)")
+                        st.latex(r"\text{Error local: } O(h^5) \quad | \quad \text{Error global: } O(h^4)")
+                    with st.expander("📖 Notación"):
+                        st.markdown("""
+| Símbolo | Significado |
+|---|---|
+| $y_i$ | Aproximación de $y$ en el paso $i$ |
+| $x_i$ | Variable independiente en el paso $i$: $x_i = x_0 + i \\cdot h$ |
+| $h$ | Tamaño del paso |
+| $k_j$ | Pendiente evaluada en el punto $j$-ésimo del paso |
+| $\\varphi$ | Pendiente promedio ponderada (RK4) |
+| $f(x,y)$ | Función que define la EDO: $dy/dx = f(x,y)$ |
+""")
+
+                # --- CÁLCULO ---
+                st.subheader("Resultado")
+                if "Euler" in rk_orden:
+                    df_rk, xs_rk, ys_rk = metodo_euler(func_input, rk_x0, rk_y0, rk_h, rk_n)
+                elif "RK2" in rk_orden:
+                    df_rk, xs_rk, ys_rk = metodo_rk2(func_input, rk_x0, rk_y0, rk_h, rk_n, rk_variante)
+                else:
+                    df_rk, xs_rk, ys_rk = metodo_rk4(func_input, rk_x0, rk_y0, rk_h, rk_n)
+
+                # Solución exacta
+                xs_arr = np.array(xs_rk)
+                y_exacta = None
+                if rk_exacta and rk_exacta.strip():
+                    try:
+                        y_exacta = np.array([evaluar_f(rk_exacta, xi) for xi in xs_arr])
+                        if any(v is None for v in y_exacta):
+                            y_exacta = None
+                    except:
+                        y_exacta = None
+                if y_exacta is None:
+                    y_exacta = obtener_solucion_exacta_edo(func_input, rk_x0, rk_y0, xs_arr)
+
+                # Agregar error a la tabla si hay solución exacta
+                if y_exacta is not None and len(y_exacta) == len(ys_rk):
+                    df_rk["y_exacto"] = y_exacta
+                    df_rk["Error Abs."] = np.abs(np.array(ys_rk) - y_exacta)
+                    df_rk["Error Rel. (%)"] = np.where(
+                        np.abs(y_exacta) > 1e-12,
+                        np.abs(np.array(ys_rk) - y_exacta) / np.abs(y_exacta) * 100, 0.0
+                    )
+
+                # Métricas principales
+                col_r1, col_r2, col_r3 = st.columns(3)
+                col_r1.metric("y final ≈", f"{ys_rk[-1]:{fmt}}")
+                col_r2.metric("x final", f"{xs_rk[-1]:{fmt}}")
+                if y_exacta is not None:
+                    err_final = abs(ys_rk[-1] - y_exacta[-1])
+                    col_r3.metric("Error Final |y - y_exact|", formatear_error(err_final))
+
+                st.dataframe(df_rk, use_container_width=True)
+
+                # --- GRÁFICOS ---
+                tab1, tab2, tab3 = st.tabs(["Solución y(x)", "Campo de Pendientes", "Análisis de Error"])
+
+                with tab1:
+                    fig = go.Figure()
+                    # Curva numérica
+                    fig.add_trace(go.Scatter(x=xs_rk, y=ys_rk, mode='lines+markers',
+                        name=f"RK Numérico", line=dict(color='#00cfcc', width=2),
+                        marker=dict(size=6)))
+                    # Curva exacta (densa)
+                    if y_exacta is not None:
+                        x_dense = np.linspace(rk_x0, xs_rk[-1], 300)
+                        if rk_exacta and rk_exacta.strip():
+                            y_dense = [evaluar_f(rk_exacta, xi) for xi in x_dense]
+                        else:
+                            y_dense = obtener_solucion_exacta_edo(func_input, rk_x0, rk_y0, x_dense)
+                        if y_dense is not None:
+                            fig.add_trace(go.Scatter(x=x_dense, y=y_dense, mode='lines',
+                                name="Solución Exacta", line=dict(color='#ff4b4b', dash='dash', width=2)))
+                    fig.update_layout(template="plotly_dark",
+                        title=f"Solución de dy/dx = {func_input}",
+                        xaxis_title="x", yaxis_title="y(x)")
+                    st.plotly_chart(fig, use_container_width=True)
+
+                with tab2:
+                    # Campo de pendientes (slope field)
+                    x_min_sf = rk_x0 - 0.5
+                    x_max_sf = xs_rk[-1] + 0.5
+                    y_min_sf = min(ys_rk) - abs(max(ys_rk) - min(ys_rk)) * 0.3 - 0.5
+                    y_max_sf = max(ys_rk) + abs(max(ys_rk) - min(ys_rk)) * 0.3 + 0.5
+                    nx_sf, ny_sf = 20, 20
+                    x_sf = np.linspace(x_min_sf, x_max_sf, nx_sf)
+                    y_sf = np.linspace(y_min_sf, y_max_sf, ny_sf)
+                    fig_sf = go.Figure()
+                    scale = (x_max_sf - x_min_sf) / nx_sf * 0.35
+                    for xi in x_sf:
+                        for yi in y_sf:
+                            slope = evaluar_edo(func_input, xi, yi)
+                            if slope is not None:
+                                angle = np.arctan(slope)
+                                dx = scale * np.cos(angle)
+                                dy = scale * np.sin(angle)
+                                fig_sf.add_shape(type="line",
+                                    x0=xi-dx/2, y0=yi-dy/2, x1=xi+dx/2, y1=yi+dy/2,
+                                    line=dict(color='rgba(255,255,255,0.3)', width=1))
+                    fig_sf.add_trace(go.Scatter(x=xs_rk, y=ys_rk, mode='lines+markers',
+                        name="Solución RK", line=dict(color='#00cfcc', width=2.5),
+                        marker=dict(size=5)))
+                    fig_sf.update_layout(template="plotly_dark",
+                        title="Campo de Pendientes + Solución",
+                        xaxis_title="x", yaxis_title="y",
+                        xaxis=dict(range=[x_min_sf, x_max_sf]),
+                        yaxis=dict(range=[y_min_sf, y_max_sf], scaleanchor="x"))
+                    st.plotly_chart(fig_sf, use_container_width=True)
+
+                with tab3:
+                    if y_exacta is not None and len(y_exacta) == len(ys_rk):
+                        errores_abs = np.abs(np.array(ys_rk) - y_exacta)
+                        fig_err = go.Figure()
+                        fig_err.add_trace(go.Bar(x=xs_rk, y=errores_abs,
+                            name="Error Absoluto", marker_color='#e03ce6'))
+                        fig_err.update_layout(template="plotly_dark",
+                            title="Error Absoluto por Paso",
+                            xaxis_title="x", yaxis_title="|y_num - y_exact|")
+                        st.plotly_chart(fig_err, use_container_width=True)
+
+                        st.info(f"**Error máximo:** {formatear_error(max(errores_abs))} en x = {xs_rk[np.argmax(errores_abs)]:{fmt}}")
+                        st.info(f"**Error promedio:** {formatear_error(np.mean(errores_abs))}")
+                    else:
+                        st.warning("No se pudo obtener la solución exacta. Ingresá una solución analítica o verificá la función.")
+
+            else:  # Sistema de 2 EDOs
+                if mostrar_formulas:
+                    st.subheader("Fórmulas — RK4 Sistema")
+                    st.latex(r"\frac{dy_1}{dx} = f_1(x, y_1, y_2) \qquad \frac{dy_2}{dx} = f_2(x, y_1, y_2)")
+                    st.latex(r"y_{j,i+1} = y_{j,i} + \frac{h}{6}\left(k_1^{(j)} + 2k_2^{(j)} + 2k_3^{(j)} + k_4^{(j)}\right)")
+
+                st.subheader("Resultado — Sistema RK4")
+                df_sys, xs_sys, y1s_sys, y2s_sys = metodo_rk4_sistema(
+                    func_input_1, func_input_2, rk_x0, rk_y1_0, rk_y2_0, rk_h, rk_n)
+
+                col_r1, col_r2, col_r3 = st.columns(3)
+                col_r1.metric("y₁ final ≈", f"{y1s_sys[-1]:{fmt}}")
+                col_r2.metric("y₂ final ≈", f"{y2s_sys[-1]:{fmt}}")
+                col_r3.metric("x final", f"{xs_sys[-1]:{fmt}}")
+                st.dataframe(df_sys, use_container_width=True)
+
+                tab1, tab2 = st.tabs(["Soluciones y₁(x), y₂(x)", "Retrato de Fase"])
+
+                with tab1:
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=xs_sys, y=y1s_sys, mode='lines+markers',
+                        name="y₁(x)", line=dict(color='#00cfcc', width=2), marker=dict(size=5)))
+                    fig.add_trace(go.Scatter(x=xs_sys, y=y2s_sys, mode='lines+markers',
+                        name="y₂(x)", line=dict(color='#e03ce6', width=2), marker=dict(size=5)))
+                    fig.update_layout(template="plotly_dark",
+                        title="Soluciones del Sistema de EDOs",
+                        xaxis_title="x", yaxis_title="y")
+                    st.plotly_chart(fig, use_container_width=True)
+
+                with tab2:
+                    fig_phase = go.Figure()
+                    fig_phase.add_trace(go.Scatter(x=y1s_sys, y=y2s_sys, mode='lines+markers',
+                        name="Trayectoria", line=dict(color='#f0a500', width=2), marker=dict(size=5)))
+                    fig_phase.add_trace(go.Scatter(x=[y1s_sys[0]], y=[y2s_sys[0]], mode='markers',
+                        name="Inicio", marker=dict(size=12, color='#00ff00', symbol='star')))
+                    fig_phase.add_trace(go.Scatter(x=[y1s_sys[-1]], y=[y2s_sys[-1]], mode='markers',
+                        name="Final", marker=dict(size=12, color='#ff4b4b', symbol='diamond')))
+                    fig_phase.update_layout(template="plotly_dark",
+                        title="Retrato de Fase (y₁ vs y₂)",
+                        xaxis_title="y₁", yaxis_title="y₂")
+                    st.plotly_chart(fig_phase, use_container_width=True)
 
         else: # Raíces
             if mostrar_formulas:
