@@ -670,9 +670,7 @@ def metodo_rk4(f_str, x0, y0, h, n_steps):
             row["k₂"] = k2
             row["k₃"] = k3
             row["k₄"] = k4
-            phi = (k1 + 2*k2 + 2*k3 + k4) / 6
-            row["φ"] = phi
-            y_next = y + h * phi
+            y_next = y + h * (k1 + 2*k2 + 2*k3 + k4) / 6
             row["yᵢ₊₁"] = y_next
             y = y_next
             x = x + h
@@ -1525,10 +1523,6 @@ with col2:
                 if y_exacta is not None and len(y_exacta) == len(ys_rk):
                     df_rk["y_exacto"] = y_exacta
                     df_rk["Error Abs."] = np.abs(np.array(ys_rk) - y_exacta)
-                    df_rk["Error Rel. (%)"] = np.where(
-                        np.abs(y_exacta) > 1e-12,
-                        np.abs(np.array(ys_rk) - y_exacta) / np.abs(y_exacta) * 100, 0.0
-                    )
 
                 # Métricas principales
                 col_r1, col_r2, col_r3 = st.columns(3)
