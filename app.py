@@ -68,7 +68,7 @@ def evaluar_f(f_str, x_val):
         f_proc = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', f_proc)
         contexto = {
             "np": np, "x": x_val, "sin": np.sin, "cos": np.cos, 
-            "tan": np.tan, "exp": np.exp, "log": np.log, 
+            "tan": np.tan, "exp": np.exp, "log": np.log, "log10": np.log10,
             "sqrt": np.sqrt, "pi": np.pi, "e": np.e, "sp": sp
         }
         res = eval(f_proc, {"__builtins__": None}, contexto)
@@ -93,7 +93,7 @@ def evaluar_f_array(f_str, x_arr, y_arr=None):
         f_proc = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', f_proc)
         contexto = {
             "np": np, "x": x_arr, "y": y_arr, "sin": np.sin, "cos": np.cos, 
-            "tan": np.tan, "exp": np.exp, "log": np.log, 
+            "tan": np.tan, "exp": np.exp, "log": np.log, "log10": np.log10,
             "sqrt": np.sqrt, "pi": np.pi, "e": np.e, "sp": sp
         }
         res = eval(f_proc, {"__builtins__": None}, contexto)
@@ -111,7 +111,7 @@ def evaluar_f_array(f_str, x_arr, y_arr=None):
             for xv, yv in zip(np.atleast_1d(x_arr), np.atleast_1d(y_arr)):
                 contexto_scalar = {
                     "np": np, "x": xv, "y": yv, "sin": np.sin, "cos": np.cos, 
-                    "tan": np.tan, "exp": np.exp, "log": np.log, 
+                    "tan": np.tan, "exp": np.exp, "log": np.log, "log10": np.log10,
                     "sqrt": np.sqrt, "pi": np.pi, "e": np.e
                 }
                 try:
@@ -587,7 +587,7 @@ def evaluar_edo(f_str, x_val, y_val):
         contexto = {
             "np": np, "x": x_val, "y": y_val, "t": x_val,
             "sin": np.sin, "cos": np.cos, "tan": np.tan,
-            "exp": np.exp, "log": np.log, "sqrt": np.sqrt,
+            "exp": np.exp, "log": np.log, "log10": np.log10, "sqrt": np.sqrt,
             "pi": np.pi, "e": np.e, "abs": abs
         }
         res = eval(f_proc, {"__builtins__": None}, contexto)
@@ -692,7 +692,7 @@ def metodo_rk4_sistema(f1_str, f2_str, x0, y1_0, y2_0, h, n_steps):
                 "np": np, "x": x_val, "t": x_val,
                 "y1": y1_val, "y2": y2_val, "y": y1_val, "z": y2_val,
                 "sin": np.sin, "cos": np.cos, "tan": np.tan,
-                "exp": np.exp, "log": np.log, "sqrt": np.sqrt,
+                "exp": np.exp, "log": np.log, "log10": np.log10, "sqrt": np.sqrt,
                 "pi": np.pi, "e": np.e, "abs": abs
             }
             res = eval(f_proc, {"__builtins__": None}, ctx)
@@ -757,10 +757,99 @@ fmt = f".{precision}f"
 metodo_sel = st.sidebar.selectbox("Selecciona Método",
     ["Bisección", "Newton-Raphson", "Punto Fijo y Aitken", "Interpolación Lagrange", "Diferencias Centrales", "Rectángulo Medio", "Trapecios", "Simpson 1/3", "Simpson 3/8", "Montecarlo", "Montecarlo Doble", "Runge-Kutta"])
 
+# --- BOTONERA DE FUNCIONES MATEMÁTICAS ---
+
+# Defaults por método para el campo f(x) principal
+_FX_DEFAULTS = {
+    "Bisección": "x**2 - 2",
+    "Newton-Raphson": "x**2 - 2",
+    "Punto Fijo y Aitken": "cos(x)",
+    "Simpson 1/3": "x**3",
+    "Simpson 3/8": "x**3",
+    "Trapecios": "x**2",
+    "Rectángulo Medio": "x**2",
+    "Montecarlo": "sin(x)",
+    "Montecarlo Doble": "x**2 + y**2",
+    "Runge-Kutta": "x + y",
+}
+
+# Detectar cambio de método y resetear el input
+if "prev_metodo" not in st.session_state:
+    st.session_state.prev_metodo = metodo_sel
+if st.session_state.prev_metodo != metodo_sel:
+    st.session_state.prev_metodo = metodo_sel
+    if "fx_input" in st.session_state:
+        del st.session_state["fx_input"]
+
+# Inicializar fx_input con el default del método actual
+if "fx_input" not in st.session_state:
+    st.session_state.fx_input = _FX_DEFAULTS.get(metodo_sel, "x**2 - 2")
+
+# Botones: (etiqueta visible, texto insertado)
+_MATH_BUTTONS = [
+    ("√x",     "sqrt("),
+    ("eˣ",     "exp("),
+    ("ln",     "log("),
+    ("log₁₀",  "log10("),
+    ("sin",    "sin("),
+    ("cos",    "cos("),
+    ("tan",    "tan("),
+    ("xⁿ",    "**"),
+    ("π",      "pi"),
+    ("e",      "e"),
+    ("(",      "("),
+    (")",      ")"),
+]
+
+def _insertar_texto(texto):
+    """Callback: concatena texto al final del campo f(x)."""
+    st.session_state.fx_input = st.session_state.fx_input + texto
+
+def _render_botonera():
+    """Dibuja la cuadrícula de botones matemáticos (4 por fila) con estilo compacto."""
+    # CSS para botones compactos tipo calculadora
+    st.markdown("""
+    <style>
+    /* Botones de la botonera matemática: compactos */
+    div[data-testid="stHorizontalBlock"]:has(button[kind="secondary"]) button {
+        padding: 0.15rem 0.3rem !important;
+        font-size: 0.78rem !important;
+        min-height: 0 !important;
+        line-height: 1.3 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(button[kind="secondary"]) {
+        gap: 0.25rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown(
+        "<p style='margin:0 0 2px 0;font-size:0.82em;color:#888;'>📐 Insertar función:</p>",
+        unsafe_allow_html=True,
+    )
+    cols_per_row = 4
+    for row_start in range(0, len(_MATH_BUTTONS), cols_per_row):
+        row_btns = _MATH_BUTTONS[row_start : row_start + cols_per_row]
+        cols = st.columns(len(row_btns))
+        for col, (label, insert_text) in zip(cols, row_btns):
+            col.button(
+                label,
+                key=f"mbtn_{label}",
+                on_click=_insertar_texto,
+                args=(insert_text,),
+                use_container_width=True,
+            )
+    st.markdown("<hr style='margin:4px 0 8px 0;border:none;border-top:1px solid #333;'>", unsafe_allow_html=True)
+
+# Métodos que NO usan un campo f(x) principal
+_METODOS_SIN_FX = {"Interpolación Lagrange", "Diferencias Centrales"}
+
 col1, col2 = st.columns([1, 2])
 
 with col1:
     st.subheader("Entrada")
+    # Mostrar botonera solo para métodos con campo de función
+    if metodo_sel not in _METODOS_SIN_FX:
+        _render_botonera()
     if "Interpolación" in metodo_sel or "Diferencias" in metodo_sel:
         st.info("Formato: x, y (un punto por línea)")
         default_pts = "1, 1\n4, 2"
@@ -779,7 +868,7 @@ with col1:
         except:
             st.error("Error al leer puntos.")
     elif metodo_sel == "Simpson 1/3":
-        func_input = st.text_input("f(x):", value="x**3")
+        func_input = st.text_input("f(x):", key="fx_input")
         a_simp_str = st.text_input("Límite inferior a", value="0", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         b_simp_str = st.text_input("Límite superior b", value="1", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         n_simp = int(st.number_input("Nº subintervalos n (debe ser par)", value=4, min_value=2, step=2))
@@ -792,7 +881,7 @@ with col1:
             st.error("Límites inválidos. Usá expresiones como: pi/2, sqrt(2), 1.5, 2*pi")
             a_simp, b_simp = 0.0, 1.0
     elif metodo_sel == "Simpson 3/8":
-        func_input = st.text_input("f(x):", value="x**3")
+        func_input = st.text_input("f(x):", key="fx_input")
         a_simp38_str = st.text_input("Límite inferior a", value="0", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         b_simp38_str = st.text_input("Límite superior b", value="1", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         n_simp38 = int(st.number_input("Nº subintervalos n (múltiplo de 3)", value=3, min_value=3, step=3))
@@ -805,7 +894,7 @@ with col1:
             st.error("Límites inválidos. Usá expresiones como: pi/2, sqrt(2), 1.5, 2*pi")
             a_simp38, b_simp38 = 0.0, 1.0
     elif metodo_sel == "Trapecios":
-        func_input = st.text_input("f(x):", value="x**2")
+        func_input = st.text_input("f(x):", key="fx_input")
         a_trap_str = st.text_input("Límite inferior a", value="0", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         b_trap_str = st.text_input("Límite superior b", value="1", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         n_trap = int(st.number_input("Nº subintervalos n", value=4, min_value=1, step=1))
@@ -816,7 +905,7 @@ with col1:
             st.error("Límites inválidos. Usá expresiones como: pi/2, sqrt(2), 1.5, 2*pi")
             a_trap, b_trap = 0.0, 1.0
     elif metodo_sel == "Rectángulo Medio":
-        func_input = st.text_input("f(x):", value="x**2")
+        func_input = st.text_input("f(x):", key="fx_input")
         a_rect_str = st.text_input("Límite inferior a", value="0", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         b_rect_str = st.text_input("Límite superior b", value="1", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         n_rect = int(st.number_input("Nº subintervalos n", value=4, min_value=1, step=1))
@@ -827,7 +916,7 @@ with col1:
             st.error("Límites inválidos. Usá expresiones como: pi/2, sqrt(2), 1.5, 2*pi")
             a_rect, b_rect = 0.0, 1.0
     elif metodo_sel == "Montecarlo":
-        func_input = st.text_input("f(x):", value="sin(x)")
+        func_input = st.text_input("f(x):", key="fx_input")
         a_mc_str = st.text_input("Límite inferior a", value="0", help="Usar expresiones: pi/2, sqrt(2)")
         b_mc_str = st.text_input("Límite superior b", value="pi", help="Usar expressions: pi/2, sqrt(2)")
         n_mc = int(st.number_input("Cantidad de Puntos N", value=10000, step=1000))
@@ -845,7 +934,7 @@ with col1:
             st.error("Límites inválidos.")
             a_mc, b_mc = 0.0, 3.14159
     elif metodo_sel == "Montecarlo Doble":
-        func_input = st.text_input("f(x, y):", value="x**2 + y**2")
+        func_input = st.text_input("f(x, y):", key="fx_input")
         col_ax, col_bx = st.columns(2)
         a_x_mc_str = col_ax.text_input("Lím. inf. X (a)", value="0")
         b_x_mc_str = col_bx.text_input("Lím. sup. X (b)", value="1")
@@ -869,7 +958,7 @@ with col1:
             st.error("Límites inválidos.")
             a_x_mc, b_x_mc, a_y_mc, b_y_mc = 0.0, 1.0, 0.0, 2.0
     elif metodo_sel == "Punto Fijo y Aitken":
-        func_input = st.text_input("g(x):", value="cos(x)", help="Función de iteración de punto fijo. Ej: cos(x), (x + 2/x)/2, sqrt(2 + x)")
+        func_input = st.text_input("g(x):", key="fx_input", help="Función de iteración de punto fijo. Ej: cos(x), (x + 2/x)/2, sqrt(2 + x)")
         x0_pf = st.number_input("x₀ (valor inicial)", value=1.0, format="%.6f")
         tol_pf = st.number_input("Tolerancia (%)", value=0.001, format="%.6f")
         iter_pf = st.slider("Max Iteraciones", 5, 200, 50)
@@ -880,7 +969,7 @@ with col1:
             rk_variante = None
             if "RK2" in rk_orden:
                 rk_variante = st.selectbox("Variante RK2", ["Heun", "Punto Medio", "Ralston"])
-            func_input = st.text_input("dy/dx = f(x, y):", value="x + y", help="Usá 'x' e 'y' como variables. Ej: x + y, -2*x*y, sin(x)*y")
+            func_input = st.text_input("dy/dx = f(x, y):", key="fx_input", help="Usá 'x' e 'y' como variables. Ej: x + y, -2*x*y, sin(x)*y")
             col_ci1, col_ci2 = st.columns(2)
             rk_x0 = col_ci1.number_input("x₀ (valor inicial)", value=0.0, format="%.6f")
             rk_y0 = col_ci2.number_input("y₀ = y(x₀)", value=1.0, format="%.6f")
@@ -889,7 +978,7 @@ with col1:
             rk_n = int(col_n.number_input("Nº de pasos", value=10, min_value=1, step=1))
             rk_exacta = st.text_input("Solución exacta y(x) (opcional):", value="", help="Ej: 2*exp(x) - x - 1. Dejá vacío para comparar con scipy.")
         else:
-            func_input_1 = st.text_input("dy₁/dx = f₁(x, y₁, y₂):", value="y2", help="Usá x, y1, y2 (o y, z)")
+            func_input_1 = st.text_input("dy₁/dx = f₁(x, y₁, y₂):", key="fx_input", help="Usá x, y1, y2 (o y, z)")
             func_input_2 = st.text_input("dy₂/dx = f₂(x, y₁, y₂):", value="-y1", help="Usá x, y1, y2 (o y, z)")
             col_ci1, col_ci2, col_ci3 = st.columns(3)
             rk_x0 = col_ci1.number_input("x₀", value=0.0, format="%.6f")
@@ -899,7 +988,7 @@ with col1:
             rk_h = col_h.number_input("Paso h", value=0.1, min_value=0.0001, format="%.6f")
             rk_n = int(col_n.number_input("Nº de pasos", value=10, min_value=1, step=1))
     else:
-        func_input = st.text_input("f(x):", value="x**2 - 2")
+        func_input = st.text_input("f(x):", key="fx_input")
         if metodo_sel == "Bisección":
             a_in, b_in = st.number_input("a", value=0.0), st.number_input("b", value=2.0)
         else:
