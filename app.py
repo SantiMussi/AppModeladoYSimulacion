@@ -522,8 +522,8 @@ def metodo_newton_raphson(f_str, x0, tol, max_iter):
         if dfx == 0: break
         x_next = x_n - fx / dfx
         err = abs(x_next - x_n) / abs(x_next) * 100 if abs(x_next) > 1e-12 else 0
-        history.append({"Iter": i+1, "x_n": x_n, "f(x_n)": fx, "f'(x_n)": dfx, "Error (%)": err})
-        if err < tol: return pd.DataFrame(history), "convergencia", x_next, err
+        history.append({"Iter": i+1, "x_n": x_n, "f(x_n)": fx, "f'(x_n)": dfx, "Error (%)": "" if i == 0 else err})
+        if i > 0 and err < tol: return pd.DataFrame(history), "convergencia", x_next, err
         x_n = x_next
     return pd.DataFrame(history), "limite", x_n, err
 
