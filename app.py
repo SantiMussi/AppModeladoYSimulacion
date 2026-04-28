@@ -532,38 +532,36 @@ def metodo_newton_raphson(f_str, x0, tol, max_iter):
 def metodo_punto_fijo_aitken(g_str, x0, tol, max_iter):
     """Iteración de Punto Fijo con aceleración de Aitken (Δ²)."""
     history = []
-    xs = [x0]  # secuencia de punto fijo simple
+    xn = x0
 
     for i in range(max_iter):
-        gx = evaluar_f(g_str, xs[-1])
-        if gx is None:
-            return pd.DataFrame(history), "error_eval", xs[-1], 100.0
+        # Xn+1 = g(Xn)
+        xn1 = evaluar_f(g_str, xn)
+        if xn1 is None:
+            return pd.DataFrame(history), "error_eval", xn, 100.0
 
-        xs.append(gx)
+        # Xn+2 = g(Xn+1)
+        xn2 = evaluar_f(g_str, xn1)
+        if xn2 is None:
+            return pd.DataFrame(history), "error_eval", xn1, 100.0
 
-        # Calcular x_hat de Aitken cuando tengamos 3 valores consecutivos
+        # Aitken: Xn* = Xn - (Xn+1 - Xn)^2 / (Xn+2 - 2*Xn+1 + Xn)
+        denom = xn2 - 2 * xn1 + xn
         x_hat = None
         error_pct = None
-        if len(xs) >= 3:
-            xn   = xs[-3]
-            xn1  = xs[-2]
-            xn2  = xs[-1]
-            denom = xn2 - 2 * xn1 + xn
-            if abs(denom) > 1e-15:
-                x_hat = xn - (xn1 - xn) ** 2 / denom
-                if abs(x_hat) > 1e-12:
-                    error_pct = abs((x_hat - xn) / x_hat) * 100
-                else:
-                    error_pct = 0.0
+        if abs(denom) > 1e-15:
+            x_hat = xn - (xn1 - xn) ** 2 / denom
+            if abs(x_hat) > 1e-12:
+                error_pct = abs((x_hat - xn) / x_hat) * 100
             else:
-                x_hat = None  # División por cero — no se puede calcular
-                error_pct = None
+                error_pct = 0.0
 
         row = {
             "n": i,
-            "xn": xs[-2],
-            "g(xn)": gx,
-            "x_hat": x_hat if x_hat is not None else "",
+            "Xn": xn,
+            "Xn+1": xn1,
+            "Xn+2": xn2,
+            "Xn*": x_hat if x_hat is not None else "",
             "Error %": error_pct if error_pct is not None else "",
         }
         history.append(row)
@@ -572,7 +570,10 @@ def metodo_punto_fijo_aitken(g_str, x0, tol, max_iter):
         if error_pct is not None and error_pct < tol:
             return pd.DataFrame(history), "convergencia", x_hat, error_pct
 
-    ultimo_xhat = x_hat if x_hat is not None else xs[-1]
+        # Siguiente iteración: Xn = Xn+2 (avanzar secuencia punto fijo)
+        xn = xn2
+
+    ultimo_xhat = x_hat if x_hat is not None else xn
     ultimo_err  = error_pct if error_pct is not None else 100.0
     return pd.DataFrame(history), "limite", ultimo_xhat, ultimo_err
 
@@ -1772,8 +1773,8 @@ with col2:
                 st.dataframe(df_pf, use_container_width=True)
 
                 # --- GRÁFICO: convergencia punto fijo vs Aitken ---
-                xn_vals = df_pf["xn"].tolist()
-                xhat_vals = [v if v != "" else None for v in df_pf["x_hat"].tolist()]
+                xn_vals = df_pf["Xn"].tolist()
+                xhat_vals = [v if v != "" else None for v in df_pf["Xn*"].tolist()]
                 n_vals = df_pf["n"].tolist()
 
                 fig = go.Figure()
