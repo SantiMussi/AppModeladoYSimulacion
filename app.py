@@ -173,7 +173,7 @@ def metodo_diferencias_centrales(x_pts, y_pts):
 
 # --- INTEGRACIÓN: SIMPSON 1/3 ---
 
-def metodo_simpson_13(f_str, a, b, n):
+def metodo_simpson_13(f_str, a, b, n, xi_punto=None):
     """Regla de Simpson 1/3 compuesta. n debe ser par."""
     if n % 2 != 0:
         n += 1
@@ -189,15 +189,23 @@ def metodo_simpson_13(f_str, a, b, n):
         suma += (4 if i % 2 != 0 else 2) * y_pts[i]
     integral = (h / 3) * suma
 
-    # Error de truncamiento: |E_T| <= (b-a)*h^4/180 * max|f''''(xi)|
+    # Error de truncamiento: |E_T| <= (b-a)*h^4/180 * |f''''(xi)|
     h_num = max(h * 0.1, 1e-4)
-    f4_vals = []
-    for xi in x_pts[2:-2]:
-        vals = [evaluar_f(f_str, xi + k * h_num) for k in [-2, -1, 0, 1, 2]]
+    if xi_punto is not None:
+        # Evaluar f⁴ en el punto exacto ξ dado por el usuario
+        vals = [evaluar_f(f_str, xi_punto + k * h_num) for k in [-2, -1, 0, 1, 2]]
         if all(v is not None for v in vals):
-            f4 = (vals[0] - 4*vals[1] + 6*vals[2] - 4*vals[3] + vals[4]) / h_num**4
-            f4_vals.append(abs(f4))
-    f4_max = max(f4_vals) if f4_vals else 0.0
+            f4_max = abs((vals[0] - 4*vals[1] + 6*vals[2] - 4*vals[3] + vals[4]) / h_num**4)
+        else:
+            f4_max = 0.0
+    else:
+        f4_vals = []
+        for xi in x_pts[2:-2]:
+            vals = [evaluar_f(f_str, xi + k * h_num) for k in [-2, -1, 0, 1, 2]]
+            if all(v is not None for v in vals):
+                f4 = (vals[0] - 4*vals[1] + 6*vals[2] - 4*vals[3] + vals[4]) / h_num**4
+                f4_vals.append(abs(f4))
+        f4_max = max(f4_vals) if f4_vals else 0.0
     error_trunc = abs((b - a) * h**4 * f4_max / 180)
 
     # Tabla por nodo: N, Xn, F(Xn), coeficiente Simpson, término ponderado
@@ -222,7 +230,7 @@ def metodo_simpson_13(f_str, a, b, n):
 
 # --- INTEGRACIÓN: SIMPSON 3/8 ---
 
-def metodo_simpson_38(f_str, a, b, n, a_str="", b_str=""):
+def metodo_simpson_38(f_str, a, b, n, a_str="", b_str="", xi_punto=None):
     """Regla de Simpson 3/8 compuesta. n debe ser múltiplo de 3."""
     if n % 3 != 0:
         n += (3 - (n % 3))
@@ -241,15 +249,22 @@ def metodo_simpson_38(f_str, a, b, n, a_str="", b_str=""):
             suma += 3 * y_pts[i]
     integral = (3 * h / 8) * suma
 
-    # Error de truncamiento: |E_T| <= (b-a)*h^4/80 * max|f''''(xi)|
+    # Error de truncamiento: |E_T| <= (b-a)*h^4/80 * |f''''(xi)|
     h_num = max(h * 0.1, 1e-4)
-    f4_vals = []
-    for xi in x_pts[2:-2]:
-        vals = [evaluar_f(f_str, xi + k * h_num) for k in [-2, -1, 0, 1, 2]]
+    if xi_punto is not None:
+        vals = [evaluar_f(f_str, xi_punto + k * h_num) for k in [-2, -1, 0, 1, 2]]
         if all(v is not None for v in vals):
-            f4 = (vals[0] - 4*vals[1] + 6*vals[2] - 4*vals[3] + vals[4]) / h_num**4
-            f4_vals.append(abs(f4))
-    f4_max = max(f4_vals) if f4_vals else 0.0
+            f4_max = abs((vals[0] - 4*vals[1] + 6*vals[2] - 4*vals[3] + vals[4]) / h_num**4)
+        else:
+            f4_max = 0.0
+    else:
+        f4_vals = []
+        for xi in x_pts[2:-2]:
+            vals = [evaluar_f(f_str, xi + k * h_num) for k in [-2, -1, 0, 1, 2]]
+            if all(v is not None for v in vals):
+                f4 = (vals[0] - 4*vals[1] + 6*vals[2] - 4*vals[3] + vals[4]) / h_num**4
+                f4_vals.append(abs(f4))
+        f4_max = max(f4_vals) if f4_vals else 0.0
     error_trunc = abs((b - a) * h**4 * f4_max / 80)
 
     def format_xn(val_float, k):
@@ -875,6 +890,15 @@ with col1:
         n_simp = int(st.number_input("Nº subintervalos n (debe ser par)", value=4, min_value=2, step=2))
         if n_simp % 2 != 0:
             st.warning("n debe ser par — se ajustará a n+1 automáticamente.")
+        usar_xi_13 = st.checkbox("Definir ξ para el error", value=False, key="xi_chk_13", help="Evaluar f⁴(ξ) en un punto exacto en vez de usar el máximo del intervalo.")
+        xi_val_13 = None
+        if usar_xi_13:
+            xi_str_13 = st.text_input("Punto ξ (epsilon)", value="0.5", key="xi_input_13", help="Expresión válida: 0.5, pi/4, sqrt(2), etc.")
+            try:
+                xi_val_13 = float(sp.sympify(xi_str_13).evalf())
+            except:
+                st.error("Valor de ξ inválido.")
+                xi_val_13 = None
         try:
             a_simp = float(sp.sympify(a_simp_str).evalf())
             b_simp = float(sp.sympify(b_simp_str).evalf())
@@ -888,6 +912,15 @@ with col1:
         n_simp38 = int(st.number_input("Nº subintervalos n (múltiplo de 3)", value=3, min_value=3, step=3))
         if n_simp38 % 3 != 0:
             st.warning("n debe ser múltiplo de 3 — se ajustará automáticamente.")
+        usar_xi_38 = st.checkbox("Definir ξ para el error", value=False, key="xi_chk_38", help="Evaluar f⁴(ξ) en un punto exacto en vez de usar el máximo del intervalo.")
+        xi_val_38 = None
+        if usar_xi_38:
+            xi_str_38 = st.text_input("Punto ξ (epsilon)", value="0.5", key="xi_input_38", help="Expresión válida: 0.5, pi/4, sqrt(2), etc.")
+            try:
+                xi_val_38 = float(sp.sympify(xi_str_38).evalf())
+            except:
+                st.error("Valor de ξ inválido.")
+                xi_val_38 = None
         try:
             a_simp38 = float(sp.sympify(a_simp38_str).evalf())
             b_simp38 = float(sp.sympify(b_simp38_str).evalf())
@@ -1119,7 +1152,7 @@ with col2:
             else: st.error("Se necesitan al menos 3 puntos.")
 
         elif metodo_sel == "Simpson 1/3":
-            integral, err_trunc, h_step, df_tabla = metodo_simpson_13(func_input, a_simp, b_simp, n_simp)
+            integral, err_trunc, h_step, df_tabla = metodo_simpson_13(func_input, a_simp, b_simp, n_simp, xi_punto=xi_val_13)
             if integral is not None:
                 if mostrar_formulas:
                     st.subheader("Fórmulas")
@@ -1177,7 +1210,7 @@ with col2:
                 st.error("No se pudo evaluar f(x) en el intervalo. Verificá la función.")
 
         elif metodo_sel == "Simpson 3/8":
-            integral, err_trunc, h_step, df_tabla = metodo_simpson_38(func_input, a_simp38, b_simp38, n_simp38, a_simp38_str, b_simp38_str)
+            integral, err_trunc, h_step, df_tabla = metodo_simpson_38(func_input, a_simp38, b_simp38, n_simp38, a_simp38_str, b_simp38_str, xi_punto=xi_val_38)
             if integral is not None:
                 if mostrar_formulas:
                     st.subheader("Fórmulas")
