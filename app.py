@@ -1023,22 +1023,37 @@ with col1:
                 rk_variante = st.selectbox("Variante RK2", ["Heun", "Punto Medio", "Ralston"])
             func_input = st.text_input("dy/dx = f(x, y):", key="fx_input", help="Usá 'x' e 'y' como variables. Ej: x + y, -2*x*y, sin(x)*y")
             col_ci1, col_ci2 = st.columns(2)
-            rk_x0 = col_ci1.number_input("x₀ (valor inicial)", value=0.0, format="%.6f")
-            rk_y0 = col_ci2.number_input("y₀ = y(x₀)", value=1.0, format="%.6f")
+            rk_x0_str = col_ci1.text_input("x₀ (valor inicial)", value="0.0")
+            rk_y0_str = col_ci2.text_input("y₀ = y(x₀)", value="1.0")
             col_h, col_n = st.columns(2)
-            rk_h = col_h.number_input("Paso h", value=0.1, min_value=0.0001, format="%.6f")
+            rk_h_str = col_h.text_input("Paso h", value="0.1")
             rk_n = int(col_n.number_input("Nº de pasos", value=10, min_value=1, step=1))
             rk_exacta = st.text_input("Solución exacta y(x) (opcional):", value="", help="Ej: 2*exp(x) - x - 1. Dejá vacío para comparar con scipy.")
+            try:
+                rk_x0 = float(sp.sympify(rk_x0_str).evalf())
+                rk_y0 = float(sp.sympify(rk_y0_str).evalf())
+                rk_h = float(sp.sympify(rk_h_str).evalf())
+            except:
+                st.error("Valores iniciales o paso inválidos.")
+                rk_x0, rk_y0, rk_h = 0.0, 1.0, 0.1
         else:
             func_input_1 = st.text_input("dy₁/dx = f₁(x, y₁, y₂):", key="fx_input", help="Usá x, y1, y2 (o y, z)")
             func_input_2 = st.text_input("dy₂/dx = f₂(x, y₁, y₂):", value="-y1", help="Usá x, y1, y2 (o y, z)")
             col_ci1, col_ci2, col_ci3 = st.columns(3)
-            rk_x0 = col_ci1.number_input("x₀", value=0.0, format="%.6f")
-            rk_y1_0 = col_ci2.number_input("y₁(x₀)", value=0.0, format="%.6f")
-            rk_y2_0 = col_ci3.number_input("y₂(x₀)", value=1.0, format="%.6f")
+            rk_x0_str = col_ci1.text_input("x₀", value="0.0")
+            rk_y1_0_str = col_ci2.text_input("y₁(x₀)", value="0.0")
+            rk_y2_0_str = col_ci3.text_input("y₂(x₀)", value="1.0")
             col_h, col_n = st.columns(2)
-            rk_h = col_h.number_input("Paso h", value=0.1, min_value=0.0001, format="%.6f")
+            rk_h_str = col_h.text_input("Paso h", value="0.1")
             rk_n = int(col_n.number_input("Nº de pasos", value=10, min_value=1, step=1))
+            try:
+                rk_x0 = float(sp.sympify(rk_x0_str).evalf())
+                rk_y1_0 = float(sp.sympify(rk_y1_0_str).evalf())
+                rk_y2_0 = float(sp.sympify(rk_y2_0_str).evalf())
+                rk_h = float(sp.sympify(rk_h_str).evalf())
+            except:
+                st.error("Valores iniciales o paso inválidos.")
+                rk_x0, rk_y1_0, rk_y2_0, rk_h = 0.0, 0.0, 1.0, 0.1
     else:
         func_input = st.text_input("f(x):", key="fx_input")
         if metodo_sel == "Bisección":
@@ -1262,6 +1277,14 @@ with col2:
                         f"I = {h_step/3:{fmt}} · {_suma_val:{fmt}}\n"
                         f"I = {integral:{fmt}}"
                     )
+                    if h_step > 0:
+                        _f4_max = (err_trunc * 180) / abs((b_simp - a_simp) * h_step**4)
+                        bloque += (
+                            f"\n\nError de Truncamiento:\n"
+                            f"|E_T| = ((b - a) · h⁴ / 180) · max|f⁴(ξ)|\n"
+                            f"|E_T| = (({b_simp} - {a_simp}) · {h_step}⁴ / 180) · {_f4_max:{fmt}}\n"
+                            f"|E_T| = {err_trunc:{fmt}}"
+                        )
                     st.code(bloque, language="text")
                 # Gráfico con área sombreada
                 x_plot = np.linspace(a_simp, b_simp, 300)
@@ -1346,6 +1369,14 @@ with col2:
                         f"I = {3*h_step/8:{fmt}} · {_suma_val:{fmt}}\n"
                         f"I = {integral:{fmt}}"
                     )
+                    if h_step > 0:
+                        _f4_max = (err_trunc * 80) / abs((b_simp38 - a_simp38) * h_step**4)
+                        bloque += (
+                            f"\n\nError de Truncamiento:\n"
+                            f"|E_T| = ((b - a) · h⁴ / 80) · max|f⁴(ξ)|\n"
+                            f"|E_T| = (({b_simp38} - {a_simp38}) · {h_step}⁴ / 80) · {_f4_max:{fmt}}\n"
+                            f"|E_T| = {err_trunc:{fmt}}"
+                        )
                     st.code(bloque, language="text")
                 # Gráfico con área sombreada
                 x_plot = np.linspace(a_simp38, b_simp38, 300)
@@ -1425,6 +1456,14 @@ with col2:
                         f"I = {h_step/2:{fmt}} · {_suma_val:{fmt}}\n"
                         f"I = {integral:{fmt}}"
                     )
+                    if h_step > 0:
+                        _f2_max = (err_trunc * 12) / abs((b_trap - a_trap) * h_step**2)
+                        bloque += (
+                            f"\n\nError de Truncamiento:\n"
+                            f"|E_T| = ((b - a) · h² / 12) · max|f''(ξ)|\n"
+                            f"|E_T| = (({b_trap} - {a_trap}) · {h_step}² / 12) · {_f2_max:{fmt}}\n"
+                            f"|E_T| = {err_trunc:{fmt}}"
+                        )
                     st.code(bloque, language="text")
                 # Gráfico con área sombreada y trapecios
                 x_plot = np.linspace(a_trap, b_trap, 300)
@@ -1514,6 +1553,14 @@ with col2:
                         f"I = {h_step} · {_suma_val:{fmt}}\n"
                         f"I = {integral:{fmt}}"
                     )
+                    if h_step > 0:
+                        _f2_max = (err_trunc * 24) / abs((b_rect - a_rect) * h_step**2)
+                        bloque += (
+                            f"\n\nError de Truncamiento:\n"
+                            f"|E_T| = ((b - a) · h² / 24) · max|f''(ξ)|\n"
+                            f"|E_T| = (({b_rect} - {a_rect}) · {h_step}² / 24) · {_f2_max:{fmt}}\n"
+                            f"|E_T| = {err_trunc:{fmt}}"
+                        )
                     st.code(bloque, language="text")
                 # Gráfico con área sombreada y rectángulos
                 x_plot = np.linspace(a_rect, b_rect, 300)
@@ -1931,6 +1978,9 @@ with col2:
                                 f"y_{{{_i+1}}} = {_y:{fmt}} + {rk_h} · {_fval:{fmt}}\n"
                                 f"y_{{{_i+1}}} = {_y_next:{fmt}}"
                             )
+                            if y_exacta is not None and _i+1 < len(y_exacta):
+                                _err_local = abs(_y_next - y_exacta[_i+1])
+                                bloque += f"\n\nError vs Analítica = |{_y_next:{fmt}} - {y_exacta[_i+1]:{fmt}}| = {_err_local:{fmt}}"
                             st.code(bloque, language="text")
                             _y = _y_next
                             _x = _x + rk_h
@@ -1961,6 +2011,9 @@ with col2:
                                 f"y_{{{_i+1}}} = {_y:{fmt}} + {rk_h * (_b1*_k1 + _b2*_k2):{fmt}}\n"
                                 f"y_{{{_i+1}}} = {_y_next:{fmt}}"
                             )
+                            if y_exacta is not None and _i+1 < len(y_exacta):
+                                _err_local = abs(_y_next - y_exacta[_i+1])
+                                bloque += f"\n\nError vs Analítica = |{_y_next:{fmt}} - {y_exacta[_i+1]:{fmt}}| = {_err_local:{fmt}}"
                             st.code(bloque, language="text")
                             _y = _y_next
                             _x = _x + rk_h
@@ -2002,6 +2055,9 @@ with col2:
                                 f"y_{{{_i+1}}} = {_y:{fmt}} + {rk_h}·{_phi:{fmt}}\n"
                                 f"y_{{{_i+1}}} = {_y_next:{fmt}}"
                             )
+                            if y_exacta is not None and _i+1 < len(y_exacta):
+                                _err_local = abs(_y_next - y_exacta[_i+1])
+                                bloque += f"\n\nError vs Analítica = |{_y_next:{fmt}} - {y_exacta[_i+1]:{fmt}}| = {_err_local:{fmt}}"
                             st.code(bloque, language="text")
                             _y = _y_next
                             _x = _x + rk_h
