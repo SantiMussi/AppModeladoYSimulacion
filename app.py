@@ -1991,7 +1991,9 @@ with col2:
                         f_p = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', f_p)
                         f_expr = sp.sympify(f_p, locals={"y": y_sym(x_sym)})
                         eq = sp.Eq(y_sym(x_sym).diff(x_sym), f_expr)
-                        sol = sp.dsolve(eq, y_sym(x_sym), ics={y_sym(rk_x0): rk_y0})
+                        x0_exact = sp.nsimplify(sp.sympify(rk_x0_str))
+                        y0_exact = sp.nsimplify(sp.sympify(rk_y0_str))
+                        sol = sp.dsolve(eq, y_sym(x_sym), ics={y_sym(x0_exact): y0_exact})
                         if isinstance(sol, list): sol = sol[0]
                         rk_exacta_usada = str(sol.rhs)
                         st.success(f"Y(x) Analítica (Sympy): {rk_exacta_usada}")
