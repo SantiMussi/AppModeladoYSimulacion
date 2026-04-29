@@ -317,7 +317,7 @@ def metodo_simpson_38(f_str, a, b, n, a_str="", b_str="", xi_punto=None):
 
 # --- INTEGRACIÓN: TRAPECIOS ---
 
-def metodo_trapecios(f_str, a, b, n):
+def metodo_trapecios(f_str, a, b, n, xi_punto=None):
     """Regla de Trapecios compuesta con n subintervalos."""
     h = (b - a) / n
     x_pts = np.linspace(a, b, n + 1)
@@ -331,13 +331,20 @@ def metodo_trapecios(f_str, a, b, n):
 
     # Error de truncamiento: |E_T| <= (b-a)*h^2/12 * max|f''(xi)|
     h_num = max(h * 0.1, 1e-4)
-    f2_vals = []
-    for xi in x_pts[1:-1]:
-        vals = [evaluar_f(f_str, xi + k * h_num) for k in [-1, 0, 1]]
+    if xi_punto is not None:
+        vals = [evaluar_f(f_str, xi_punto + k * h_num) for k in [-1, 0, 1]]
         if all(v is not None for v in vals):
-            f2 = (vals[0] - 2*vals[1] + vals[2]) / h_num**2
-            f2_vals.append(abs(f2))
-    f2_max = max(f2_vals) if f2_vals else 0.0
+            f2_max = abs((vals[0] - 2*vals[1] + vals[2]) / h_num**2)
+        else:
+            f2_max = 0.0
+    else:
+        f2_vals = []
+        for xi in x_pts[1:-1]:
+            vals = [evaluar_f(f_str, xi + k * h_num) for k in [-1, 0, 1]]
+            if all(v is not None for v in vals):
+                f2 = (vals[0] - 2*vals[1] + vals[2]) / h_num**2
+                f2_vals.append(abs(f2))
+        f2_max = max(f2_vals) if f2_vals else 0.0
     error_trunc = abs((b - a) * h**2 * f2_max / 12)
 
     # Tabla por nodo
@@ -934,6 +941,15 @@ with col1:
         a_trap_str = st.text_input("Límite inferior a", value="0", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         b_trap_str = st.text_input("Límite superior b", value="1", help="Podés escribir expresiones como pi/2, sqrt(2), 2*pi, etc.")
         n_trap = int(st.number_input("Nº subintervalos n", value=4, min_value=1, step=1))
+        usar_xi_trap = st.checkbox("Definir ξ para el error", value=False, key="xi_chk_trap", help="Evaluar f''(ξ) en un punto exacto en vez de usar el máximo del intervalo.")
+        xi_val_trap = None
+        if usar_xi_trap:
+            xi_str_trap = st.text_input("Punto ξ (epsilon)", value="0.5", key="xi_input_trap", help="Expresión válida: 0.5, pi/4, sqrt(2), etc.")
+            try:
+                xi_val_trap = float(sp.sympify(xi_str_trap).evalf())
+            except:
+                st.error("Valor de ξ inválido.")
+                xi_val_trap = None
         try:
             a_trap = float(sp.sympify(a_trap_str).evalf())
             b_trap = float(sp.sympify(b_trap_str).evalf())
@@ -1357,7 +1373,7 @@ with col2:
                 st.error("No se pudo evaluar f(x) en el intervalo. Verificá la función.")
 
         elif metodo_sel == "Trapecios":
-            integral, err_trunc, h_step, df_tabla = metodo_trapecios(func_input, a_trap, b_trap, n_trap)
+            integral, err_trunc, h_step, df_tabla = metodo_trapecios(func_input, a_trap, b_trap, n_trap, xi_punto=xi_val_trap)
             if integral is not None:
                 if mostrar_formulas:
                     st.subheader("Fórmulas")
