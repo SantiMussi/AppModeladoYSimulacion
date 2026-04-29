@@ -1870,9 +1870,25 @@ with col2:
                 # Solución exacta
                 xs_arr = np.array(xs_rk)
                 y_exacta = None
-                if rk_exacta and rk_exacta.strip():
+                rk_exacta_usada = rk_exacta
+                if not rk_exacta or not rk_exacta.strip():
                     try:
-                        y_exacta = np.array([evaluar_f(rk_exacta, xi) for xi in xs_arr])
+                        x_sym = sp.symbols('x')
+                        y_sym = sp.Function('y')
+                        f_p = func_input.replace("^", "**").replace("sen", "sin").replace("ln", "log")
+                        f_p = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', f_p)
+                        f_expr = sp.sympify(f_p, locals={"y": y_sym(x_sym)})
+                        eq = sp.Eq(y_sym(x_sym).diff(x_sym), f_expr)
+                        sol = sp.dsolve(eq, y_sym(x_sym), ics={y_sym(rk_x0): rk_y0})
+                        if isinstance(sol, list): sol = sol[0]
+                        rk_exacta_usada = str(sol.rhs)
+                        st.success(f"Y(x) Analítica (Sympy): {rk_exacta_usada}")
+                    except:
+                        pass
+
+                if rk_exacta_usada and rk_exacta_usada.strip():
+                    try:
+                        y_exacta = np.array([evaluar_f(rk_exacta_usada, xi) for xi in xs_arr])
                         if any(v is None for v in y_exacta):
                             y_exacta = None
                     except:
@@ -2004,8 +2020,8 @@ with col2:
                     # Curva exacta (densa)
                     if y_exacta is not None:
                         x_dense = np.linspace(rk_x0, xs_rk[-1], 300)
-                        if rk_exacta and rk_exacta.strip():
-                            y_dense = [evaluar_f(rk_exacta, xi) for xi in x_dense]
+                        if rk_exacta_usada and rk_exacta_usada.strip():
+                            y_dense = [evaluar_f(rk_exacta_usada, xi) for xi in x_dense]
                         else:
                             y_dense = obtener_solucion_exacta_edo(func_input, rk_x0, rk_y0, x_dense)
                         if y_dense is not None:
