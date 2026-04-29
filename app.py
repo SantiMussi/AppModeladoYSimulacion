@@ -874,6 +874,8 @@ with col1:
         if metodo_sel == "Interpolación Lagrange":
             func_teorica = st.text_input("Función real f(x):", value="sqrt(x)")
             x_eval = st.text_input("Evaluar en x (Epsilon):", value="2")
+        elif metodo_sel == "Diferencias Centrales":
+            x_buscar_dc = st.text_input("Buscar valor de x (opcional):", value="")
             
         try:
             lineas = [l.strip() for l in puntos_input.strip().split('\n') if l.strip()]
@@ -1148,13 +1150,25 @@ with col2:
             st.subheader("Resultado")
             df = metodo_diferencias_centrales(x_in_num, y_in_num)
             if df is not None:
-                st.table(df)
+                df_filtrado = df
+                _x_val_dc = None
+                if x_buscar_dc.strip() != "":
+                    try:
+                        _x_val_dc = float(sp.sympify(x_buscar_dc).evalf())
+                        df_filtrado = df[np.isclose(df["Punto x"].astype(float), _x_val_dc)]
+                        if df_filtrado.empty:
+                            st.warning(f"El valor x = {_x_val_dc} no se encuentra en los puntos interiores calculados.")
+                    except:
+                        st.error("Valor de x a buscar inválido.")
+                st.table(df_filtrado)
                 # --- DESARROLLO PASO A PASO ---
                 with st.expander("📋 Desarrollo paso a paso", expanded=False):
                     _h_dc = x_in_num[1] - x_in_num[0]
                     st.code(f"h = x₁ - x₀ = {x_in_num[1]} - {x_in_num[0]} = {_h_dc}", language="text")
                     for _i_dc in range(1, len(x_in_num) - 1):
                         _xi = x_in_num[_i_dc]
+                        if _x_val_dc is not None and not np.isclose(_xi, _x_val_dc):
+                            continue
                         _fi_m1 = y_in_num[_i_dc - 1]
                         _fi = y_in_num[_i_dc]
                         _fi_p1 = y_in_num[_i_dc + 1]
