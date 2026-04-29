@@ -1058,33 +1058,32 @@ with col2:
 """)
 
             # --- PROCEDIMIENTO PASO A PASO ---
-            st.subheader("Procedimiento paso a paso")
+            with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                # Mostrar cada L_i(x)
+                for i in range(n_pts):
+                    st.markdown(f"**Polinomio base $L_{{{i}}}(x)$:**")
+                    # Forma de producto (sin simplificar)
+                    num_parts = []
+                    den_parts = []
+                    for j in range(n_pts):
+                        if i != j:
+                            num_parts.append(f"(x - {sp.latex(x_exact[j])})")
+                            den_parts.append(f"({sp.latex(x_exact[i])} - {sp.latex(x_exact[j])})")
+                    producto_latex = r"L_{" + str(i) + r"}(x) = \frac{" + r" \cdot ".join(num_parts) + r"}{" + r" \cdot ".join(den_parts) + r"}"
+                    st.latex(producto_latex)
+                    # Forma simplificada
+                    st.latex(f"L_{{{i}}}(x) = {sp.latex(lista_L[i])}")
+                    st.markdown("---")
 
-            # Mostrar cada L_i(x)
-            for i in range(n_pts):
-                st.markdown(f"**Polinomio base $L_{{{i}}}(x)$:**")
-                # Forma de producto (sin simplificar)
-                num_parts = []
-                den_parts = []
-                for j in range(n_pts):
-                    if i != j:
-                        num_parts.append(f"(x - {sp.latex(x_exact[j])})")
-                        den_parts.append(f"({sp.latex(x_exact[i])} - {sp.latex(x_exact[j])})")
-                producto_latex = r"L_{" + str(i) + r"}(x) = \frac{" + r" \cdot ".join(num_parts) + r"}{" + r" \cdot ".join(den_parts) + r"}"
-                st.latex(producto_latex)
-                # Forma simplificada
-                st.latex(f"L_{{{i}}}(x) = {sp.latex(lista_L[i])}")
-                st.markdown("---")
-
-            # Mostrar armado de P(x) = Σ yi * Li(x)
-            st.markdown("**Construcción de $P(x)$:**")
-            terminos_latex = []
-            for i in range(n_pts):
-                yi_latex = sp.latex(y_exact[i])
-                li_latex = sp.latex(lista_L[i])
-                terminos_latex.append(f"({yi_latex}) \\cdot ({li_latex})")
-            suma_latex = r"P(x) = " + " + ".join(terminos_latex)
-            st.latex(suma_latex)
+                # Mostrar armado de P(x) = Σ yi * Li(x)
+                st.markdown("**Construcción de $P(x)$:**")
+                terminos_latex = []
+                for i in range(n_pts):
+                    yi_latex = sp.latex(y_exact[i])
+                    li_latex = sp.latex(lista_L[i])
+                    terminos_latex.append(f"({yi_latex}) \\cdot ({li_latex})")
+                suma_latex = r"P(x) = " + " + ".join(terminos_latex)
+                st.latex(suma_latex)
 
             st.subheader("Resultado")
             st.latex(f"P(x) = {sp.latex(poly)}")
@@ -1148,7 +1147,31 @@ with col2:
 """)
             st.subheader("Resultado")
             df = metodo_diferencias_centrales(x_in_num, y_in_num)
-            if df is not None: st.table(df)
+            if df is not None:
+                st.table(df)
+                # --- DESARROLLO PASO A PASO ---
+                with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                    _h_dc = x_in_num[1] - x_in_num[0]
+                    st.code(f"h = x₁ - x₀ = {x_in_num[1]} - {x_in_num[0]} = {_h_dc}", language="text")
+                    for _i_dc in range(1, len(x_in_num) - 1):
+                        _xi = x_in_num[_i_dc]
+                        _fi_m1 = y_in_num[_i_dc - 1]
+                        _fi = y_in_num[_i_dc]
+                        _fi_p1 = y_in_num[_i_dc + 1]
+                        _d1 = (_fi_p1 - _fi_m1) / (2 * _h_dc)
+                        _d2 = (_fi_p1 - 2*_fi + _fi_m1) / (_h_dc**2)
+                        bloque = (
+                            f"--- Punto x_{_i_dc} = {_xi} ---\n\n"
+                            f"f'(x_{_i_dc}) = [f(x_{_i_dc+1}) - f(x_{_i_dc-1})] / (2h)\n"
+                            f"f'({_xi}) = [{_fi_p1} - {_fi_m1}] / (2·{_h_dc})\n"
+                            f"f'({_xi}) = {_fi_p1 - _fi_m1} / {2*_h_dc}\n"
+                            f"f'({_xi}) = {_d1:{fmt}}\n\n"
+                            f"f''(x_{_i_dc}) = [f(x_{_i_dc+1}) - 2·f(x_{_i_dc}) + f(x_{_i_dc-1})] / h²\n"
+                            f"f''({_xi}) = [{_fi_p1} - 2·{_fi} + {_fi_m1}] / {_h_dc}²\n"
+                            f"f''({_xi}) = {_fi_p1 - 2*_fi + _fi_m1} / {_h_dc**2}\n"
+                            f"f''({_xi}) = {_d2:{fmt}}"
+                        )
+                        st.code(bloque, language="text")
             else: st.error("Se necesitan al menos 3 puntos.")
 
         elif metodo_sel == "Simpson 1/3":
@@ -1184,6 +1207,32 @@ with col2:
                 col_r2.metric("Paso h", f"{h_step:.6f}")
                 col_r3.metric("Error Trunc. |Eₜ|", formatear_error(err_trunc))
                 st.dataframe(df_tabla, use_container_width=True)
+                # --- DESARROLLO PASO A PASO ---
+                with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                    st.code(f"h = (b - a) / n = ({b_simp} - {a_simp}) / {n_simp} = {h_step}", language="text")
+                    _x_s13 = np.linspace(a_simp, b_simp, n_simp + 1)
+                    _y_s13 = [evaluar_f(func_input, xi) for xi in _x_s13]
+                    _terms = []
+                    _lines = "Nodos y evaluaciones:\n"
+                    for _k in range(n_simp + 1):
+                        if _k == 0 or _k == n_simp:
+                            _c = 1
+                        elif _k % 2 != 0:
+                            _c = 4
+                        else:
+                            _c = 2
+                        _lines += f"  x_{_k} = {_x_s13[_k]:{fmt}},  f(x_{_k}) = {_y_s13[_k]:{fmt}},  coef = {_c}\n"
+                        _terms.append(f"{_c}·{_y_s13[_k]:{fmt}}")
+                    _suma_val = sum((1 if (k==0 or k==n_simp) else (4 if k%2!=0 else 2)) * _y_s13[k] for k in range(n_simp+1))
+                    bloque = (
+                        _lines + f"\nSuma = {' + '.join(_terms)}\n"
+                        f"Suma = {_suma_val:{fmt}}\n\n"
+                        f"I = (h/3) · Suma\n"
+                        f"I = ({h_step}/3) · {_suma_val:{fmt}}\n"
+                        f"I = {h_step/3:{fmt}} · {_suma_val:{fmt}}\n"
+                        f"I = {integral:{fmt}}"
+                    )
+                    st.code(bloque, language="text")
                 # Gráfico con área sombreada
                 x_plot = np.linspace(a_simp, b_simp, 300)
                 y_plot = [evaluar_f(func_input, xi) for xi in x_plot]
@@ -1242,6 +1291,32 @@ with col2:
                 col_r2.metric("Paso h", f"{h_step:.6f}")
                 col_r3.metric("Error Trunc. |Eₜ|", formatear_error(err_trunc))
                 st.dataframe(df_tabla, use_container_width=True)
+                # --- DESARROLLO PASO A PASO ---
+                with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                    st.code(f"h = (b - a) / n = ({b_simp38} - {a_simp38}) / {n_simp38} = {h_step}", language="text")
+                    _x_s38 = np.linspace(a_simp38, b_simp38, n_simp38 + 1)
+                    _y_s38 = [evaluar_f(func_input, xi) for xi in _x_s38]
+                    _terms = []
+                    _lines = "Nodos y evaluaciones:\n"
+                    for _k in range(n_simp38 + 1):
+                        if _k == 0 or _k == n_simp38:
+                            _c = 1
+                        elif _k % 3 == 0:
+                            _c = 2
+                        else:
+                            _c = 3
+                        _lines += f"  x_{_k} = {_x_s38[_k]:{fmt}},  f(x_{_k}) = {_y_s38[_k]:{fmt}},  coef = {_c}\n"
+                        _terms.append(f"{_c}·{_y_s38[_k]:{fmt}}")
+                    _suma_val = sum((1 if (k==0 or k==n_simp38) else (2 if k%3==0 else 3)) * _y_s38[k] for k in range(n_simp38+1))
+                    bloque = (
+                        _lines + f"\nSuma = {' + '.join(_terms)}\n"
+                        f"Suma = {_suma_val:{fmt}}\n\n"
+                        f"I = (3h/8) · Suma\n"
+                        f"I = (3·{h_step}/8) · {_suma_val:{fmt}}\n"
+                        f"I = {3*h_step/8:{fmt}} · {_suma_val:{fmt}}\n"
+                        f"I = {integral:{fmt}}"
+                    )
+                    st.code(bloque, language="text")
                 # Gráfico con área sombreada
                 x_plot = np.linspace(a_simp38, b_simp38, 300)
                 y_plot = [evaluar_f(func_input, xi) for xi in x_plot]
@@ -1300,6 +1375,27 @@ with col2:
                 col_r2.metric("Paso h", f"{h_step:.6f}")
                 col_r3.metric("Error Trunc. |Eₜ|", formatear_error(err_trunc))
                 st.dataframe(df_tabla, use_container_width=True)
+                # --- DESARROLLO PASO A PASO ---
+                with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                    st.code(f"h = (b - a) / n = ({b_trap} - {a_trap}) / {n_trap} = {h_step}", language="text")
+                    _x_tr = np.linspace(a_trap, b_trap, n_trap + 1)
+                    _y_tr = [evaluar_f(func_input, xi) for xi in _x_tr]
+                    _terms = []
+                    _lines = "Nodos y evaluaciones:\n"
+                    for _k in range(n_trap + 1):
+                        _c = 1 if (_k == 0 or _k == n_trap) else 2
+                        _lines += f"  x_{_k} = {_x_tr[_k]:{fmt}},  f(x_{_k}) = {_y_tr[_k]:{fmt}},  coef = {_c}\n"
+                        _terms.append(f"{_c}·{_y_tr[_k]:{fmt}}")
+                    _suma_val = sum((1 if (k==0 or k==n_trap) else 2) * _y_tr[k] for k in range(n_trap+1))
+                    bloque = (
+                        _lines + f"\nSuma = {' + '.join(_terms)}\n"
+                        f"Suma = {_suma_val:{fmt}}\n\n"
+                        f"I = (h/2) · Suma\n"
+                        f"I = ({h_step}/2) · {_suma_val:{fmt}}\n"
+                        f"I = {h_step/2:{fmt}} · {_suma_val:{fmt}}\n"
+                        f"I = {integral:{fmt}}"
+                    )
+                    st.code(bloque, language="text")
                 # Gráfico con área sombreada y trapecios
                 x_plot = np.linspace(a_trap, b_trap, 300)
                 y_plot = [evaluar_f(func_input, xi) for xi in x_plot]
@@ -1369,6 +1465,26 @@ with col2:
                 col_r2.metric("Paso h", f"{h_step:.6f}")
                 col_r3.metric("Error Trunc. |Eₜ|", formatear_error(err_trunc))
                 st.dataframe(df_tabla, use_container_width=True)
+                # --- DESARROLLO PASO A PASO ---
+                with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                    st.code(f"h = (b - a) / n = ({b_rect} - {a_rect}) / {n_rect} = {h_step}", language="text")
+                    _x_rc = np.linspace(a_rect, b_rect, n_rect + 1)
+                    _x_mid_rc = (_x_rc[:-1] + _x_rc[1:]) / 2
+                    _y_mid_rc = [evaluar_f(func_input, xi) for xi in _x_mid_rc]
+                    _terms = []
+                    _lines = "Puntos medios y evaluaciones:\n"
+                    for _k in range(n_rect):
+                        _lines += f"  xₘ_{_k+1} = ({_x_rc[_k]:{fmt}} + {_x_rc[_k+1]:{fmt}})/2 = {_x_mid_rc[_k]:{fmt}},  f(xₘ) = {_y_mid_rc[_k]:{fmt}}\n"
+                        _terms.append(f"{_y_mid_rc[_k]:{fmt}}")
+                    _suma_val = sum(_y_mid_rc)
+                    bloque = (
+                        _lines + f"\nSuma = {' + '.join(_terms)}\n"
+                        f"Suma = {_suma_val:{fmt}}\n\n"
+                        f"I = h · Suma\n"
+                        f"I = {h_step} · {_suma_val:{fmt}}\n"
+                        f"I = {integral:{fmt}}"
+                    )
+                    st.code(bloque, language="text")
                 # Gráfico con área sombreada y rectángulos
                 x_plot = np.linspace(a_rect, b_rect, 300)
                 y_plot = [evaluar_f(func_input, xi) for xi in x_plot]
@@ -1439,6 +1555,25 @@ with col2:
             c5.metric(f"IC {conf_mc}%", f"[{ic_low:{fmt}}, {ic_up:{fmt}}]")
             st.write(f"**Área/Volumen Región:** {vol:{fmt}}")
             st.dataframe(df_tabla, use_container_width=True)
+            # --- DESARROLLO PASO A PASO ---
+            with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                _f_mean = np.mean(y_r[~np.isnan(y_r)])
+                _n_valid_mc = int(np.sum(~np.isnan(y_r)))
+                bloque = (
+                    f"V = b - a = {b_mc} - {a_mc} = {vol:{fmt}}\n"
+                    f"N = {n_mc} puntos aleatorios en [{a_mc}, {b_mc}]\n\n"
+                    f"f̄ = (1/N) · Σf(xᵢ) = {_f_mean:{fmt}}\n\n"
+                    f"I = V · f̄\n"
+                    f"I = {vol:{fmt}} · {_f_mean:{fmt}}\n"
+                    f"I = {integral:{fmt}}\n\n"
+                    f"S² = (1/(N-1)) · Σ(f(xᵢ) - f̄)² = {s_dev**2:{fmt}}\n"
+                    f"S = √(S²) = {s_dev:{fmt}}\n\n"
+                    f"EE = V · √(S²/N) = {vol:{fmt}} · √({s_dev**2:{fmt}}/{n_mc})\n"
+                    f"EE = {err_est:{fmt}}\n\n"
+                    f"IC = I ± z·EE = {integral:{fmt}} ± {abs(integral - ic_low):{fmt}}\n"
+                    f"IC = [{ic_low:{fmt}}, {ic_up:{fmt}}]"
+                )
+                st.code(bloque, language="text")
             
             # --- TABS PARA GRÁFICOS AVANZADOS ---
             tab1, tab2, tab3 = st.tabs(["Muestreo y Función", "Convergencia y Confianza", "Distribución de f(x)"])
@@ -1545,6 +1680,21 @@ with col2:
             c5.metric(f"IC {conf_mc2}%", f"[{ic_low:{fmt}}, {ic_up:{fmt}}]")
             st.write(f"**Área Integración:** {area_xy:{fmt}}")
             st.dataframe(df_tabla, use_container_width=True)
+            # --- DESARROLLO PASO A PASO ---
+            with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                _f_mean_d = np.mean(z_r[~np.isnan(z_r)])
+                bloque = (
+                    f"S = (bx-ax)·(by-ay) = ({b_x_mc}-{a_x_mc})·({b_y_mc}-{a_y_mc}) = {area_xy:{fmt}}\n"
+                    f"N = {n_mc2} puntos aleatorios\n\n"
+                    f"f̄ = (1/N) · Σf(xᵢ,yᵢ) = {_f_mean_d:{fmt}}\n\n"
+                    f"I = S · f̄\n"
+                    f"I = {area_xy:{fmt}} · {_f_mean_d:{fmt}}\n"
+                    f"I = {integral:{fmt}}\n\n"
+                    f"S² = {s_dev**2:{fmt}},  S = {s_dev:{fmt}}\n"
+                    f"EE = S_area · √(Var/N) = {err_est:{fmt}}\n\n"
+                    f"IC = [{ic_low:{fmt}}, {ic_up:{fmt}}]"
+                )
+                st.code(bloque, language="text")
             
             tab1, tab2, tab3 = st.tabs(["Muestreo 3D", "Convergencia y Confianza", "Distribución de f(x,y)"])
             
@@ -1690,7 +1840,7 @@ with col2:
                 st.dataframe(df_rk, use_container_width=True)
 
                 # --- DESARROLLO PASO A PASO (REEMPLAZO TEXTUAL) ---
-                with st.expander("📋 Desarrollo paso a paso (para copiar al examen)", expanded=False):
+                with st.expander("📋 Desarrollo paso a paso", expanded=False):
                     # Recalcular paso a paso con formato textual
                     _x, _y = rk_x0, rk_y0
                     for _i in range(rk_n):
@@ -1873,6 +2023,37 @@ with col2:
                 col_r3.metric("x final", f"{xs_sys[-1]:{fmt}}")
                 st.dataframe(df_sys, use_container_width=True)
 
+                # --- DESARROLLO PASO A PASO ---
+                with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                    for _i in range(len(df_sys) - 1):
+                        _r = df_sys.iloc[_i]
+                        _r_next = df_sys.iloc[_i+1]
+                        _x, _y1, _y2 = _r["xᵢ"], _r["y₁ᵢ"], _r["y₂ᵢ"]
+                        _k1_1, _k2_1, _k3_1, _k4_1 = _r["k₁⁽¹⁾"], _r["k₂⁽¹⁾"], _r["k₃⁽¹⁾"], _r["k₄⁽¹⁾"]
+                        _k1_2, _k2_2, _k3_2, _k4_2 = _r["k₁⁽²⁾"], _r["k₂⁽²⁾"], _r["k₃⁽²⁾"], _r["k₄⁽²⁾"]
+                        
+                        st.markdown(f"### Paso {_i} → {_i+1}")
+                        bloque = (
+                            f"Datos: x_{_i} = {_x:{fmt}}, y1_{_i} = {_y1:{fmt}}, y2_{_i} = {_y2:{fmt}}, h = {rk_h}\n\n"
+                            f"--- Ecuación 1 ---\n"
+                            f"k1⑴ = {_k1_1:{fmt}}\n"
+                            f"k2⑴ = {_k2_1:{fmt}}\n"
+                            f"k3⑴ = {_k3_1:{fmt}}\n"
+                            f"k4⑴ = {_k4_1:{fmt}}\n"
+                            f"y1_{{{_i+1}}} = y1_{_i} + (h/6)·(k1⑴ + 2·k2⑴ + 2·k3⑴ + k4⑴)\n"
+                            f"y1_{{{_i+1}}} = {_y1:{fmt}} + ({rk_h}/6)·({_k1_1:{fmt}} + 2·{_k2_1:{fmt}} + 2·{_k3_1:{fmt}} + {_k4_1:{fmt}})\n"
+                            f"y1_{{{_i+1}}} = {_r_next['y₁ᵢ']:{fmt}}\n\n"
+                            f"--- Ecuación 2 ---\n"
+                            f"k1⑵ = {_k1_2:{fmt}}\n"
+                            f"k2⑵ = {_k2_2:{fmt}}\n"
+                            f"k3⑵ = {_k3_2:{fmt}}\n"
+                            f"k4⑵ = {_k4_2:{fmt}}\n"
+                            f"y2_{{{_i+1}}} = y2_{_i} + (h/6)·(k1⑵ + 2·k2⑵ + 2·k3⑵ + k4⑵)\n"
+                            f"y2_{{{_i+1}}} = {_y2:{fmt}} + ({rk_h}/6)·({_k1_2:{fmt}} + 2·{_k2_2:{fmt}} + 2·{_k3_2:{fmt}} + {_k4_2:{fmt}})\n"
+                            f"y2_{{{_i+1}}} = {_r_next['y₂ᵢ']:{fmt}}"
+                        )
+                        st.code(bloque, language="text")
+
                 tab1, tab2 = st.tabs(["Soluciones y₁(x), y₂(x)", "Retrato de Fase"])
 
                 with tab1:
@@ -1933,6 +2114,37 @@ with col2:
                 col_r3.metric("Error Final (%)", formatear_error(err_pf) if err_pf is not None else "N/A")
 
                 st.dataframe(df_pf, use_container_width=True)
+
+                # --- DESARROLLO PASO A PASO ---
+                with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                    _xn_pf = x0_pf
+                    for _i_pf in range(len(df_pf)):
+                        _row = df_pf.iloc[_i_pf]
+                        _xn = _row["Xn"]
+                        _xn1 = _row["Xn+1"]
+                        _xn2 = _row["Xn+2"]
+                        _xn_star = _row["Xn*"]
+                        _err = _row["Error %"]
+                        bloque = (
+                            f"--- Iteración n={int(_row['n'])} ---\n"
+                            f"Xn = {_xn}\n\n"
+                            f"Xn+1 = g(Xn) = g({_xn}) = {_xn1}\n"
+                            f"Xn+2 = g(Xn+1) = g({_xn1}) = {_xn2}\n\n"
+                        )
+                        if _xn_star != "":
+                            _denom = _xn2 - 2*_xn1 + _xn
+                            bloque += (
+                                f"Xn* = Xn - (Xn+1 - Xn)² / (Xn+2 - 2·Xn+1 + Xn)\n"
+                                f"Xn* = {_xn} - ({_xn1} - {_xn})² / ({_xn2} - 2·{_xn1} + {_xn})\n"
+                                f"Xn* = {_xn} - {(_xn1 - _xn)**2:{fmt}} / {_denom:{fmt}}\n"
+                                f"Xn* = {_xn_star:{fmt}}\n\n"
+                                f"Error = |Xn* - Xn| / |Xn*| × 100%\n"
+                                f"Error = |{_xn_star:{fmt}} - {_xn}| / |{_xn_star:{fmt}}| × 100%\n"
+                                f"Error = {_err:{fmt}}%"
+                            )
+                        else:
+                            bloque += "Xn* = indefinido (denominador ≈ 0)"
+                        st.code(bloque, language="text")
 
                 # --- GRÁFICO: convergencia punto fijo vs Aitken ---
                 xn_vals = df_pf["Xn"].tolist()
@@ -2015,3 +2227,50 @@ with col2:
             if df is not None:
                 st.success(f"Raíz: {raiz:.8f}")
                 st.dataframe(df)
+
+                # --- DESARROLLO PASO A PASO ---
+                with st.expander("📋 Desarrollo paso a paso", expanded=False):
+                    if metodo_sel == "Bisección":
+                        for _i_b in range(len(df)):
+                            _r = df.iloc[_i_b]
+                            _a_b = _r["a"]
+                            _b_b = _r["b"]
+                            _xn_b = _r["x_n"]
+                            _fxn_b = _r["f(x_n)"]
+                            _fa_b = evaluar_f(func_input, _a_b)
+                            bloque = (
+                                f"--- Iteración {int(_r['Iter'])} ---\n"
+                                f"a = {_a_b:{fmt}},  b = {_b_b:{fmt}}\n\n"
+                                f"xₙ = (a + b) / 2 = ({_a_b:{fmt}} + {_b_b:{fmt}}) / 2 = {_xn_b:{fmt}}\n\n"
+                                f"f(xₙ) = f({_xn_b:{fmt}}) = {_fxn_b:{fmt}}\n"
+                            )
+                            if _fa_b is not None:
+                                _prod = _fa_b * _fxn_b
+                                bloque += f"f(a)·f(xₙ) = {_fa_b:{fmt}} · {_fxn_b:{fmt}} = {_prod:{fmt}}"
+                                if _prod < 0:
+                                    bloque += f" < 0 → b = xₙ = {_xn_b:{fmt}}"
+                                else:
+                                    bloque += f" > 0 → a = xₙ = {_xn_b:{fmt}}"
+                            if _r['Error (%)'] != '' and _r['Error (%)'] != 0:
+                                bloque += f"\nError = |xₙ - xₙ₋₁| / |xₙ| × 100% = {_r['Error (%)']:{fmt}}%"
+                            st.code(bloque, language="text")
+                    else:  # Newton-Raphson
+                        for _i_nr in range(len(df)):
+                            _r = df.iloc[_i_nr]
+                            _xn_nr = _r["x_n"]
+                            _fxn_nr = _r["f(x_n)"]
+                            _dfxn_nr = _r["f'(x_n)"]
+                            bloque = (
+                                f"--- Iteración {int(_r['Iter'])} ---\n"
+                                f"xₙ = {_xn_nr:{fmt}}\n\n"
+                                f"f(xₙ) = f({_xn_nr:{fmt}}) = {_fxn_nr:{fmt}}\n"
+                                f"f'(xₙ) = {_dfxn_nr:{fmt}}\n\n"
+                                f"xₙ₊₁ = xₙ - f(xₙ)/f'(xₙ)\n"
+                                f"xₙ₊₁ = {_xn_nr:{fmt}} - {_fxn_nr:{fmt}}/{_dfxn_nr:{fmt}}\n"
+                                f"xₙ₊₁ = {_xn_nr:{fmt}} - {_fxn_nr/_dfxn_nr if _dfxn_nr != 0 else 0:{fmt}}\n"
+                                f"xₙ₊₁ = {_xn_nr - _fxn_nr/_dfxn_nr if _dfxn_nr != 0 else _xn_nr:{fmt}}"
+                            )
+                            _err_nr = _r["Error (%)"]
+                            if _err_nr != '' and _i_nr > 0:
+                                bloque += f"\n\nError = {_err_nr:{fmt}}%"
+                            st.code(bloque, language="text")
