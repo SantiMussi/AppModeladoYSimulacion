@@ -1012,7 +1012,11 @@ with col1:
     elif metodo_sel == "Punto Fijo y Aitken":
         func_input = st.text_input("g(x):", key="fx_input", help="Función de iteración de punto fijo. Ej: cos(x), (x + 2/x)/2, sqrt(2 + x)")
         x0_pf = st.number_input("x₀ (valor inicial)", value=1.0, format="%.6f")
-        tol_pf = st.number_input("Tolerancia (%)", value=0.001, format="%.6f")
+        tol_pf_str = st.text_input("Tolerancia (%)", value="1e-3")
+        try:
+            tol_pf = float(sp.sympify(tol_pf_str).evalf())
+        except:
+            tol_pf = 0.001
         iter_pf = st.slider("Max Iteraciones", 5, 200, 50)
     elif metodo_sel == "Runge-Kutta":
         rk_tipo = st.radio("Tipo de EDO", ["EDO Simple", "Sistema de 2 EDOs"], horizontal=True)
@@ -1060,7 +1064,11 @@ with col1:
             a_in, b_in = st.number_input("a", value=0.0), st.number_input("b", value=2.0)
         else:
             x0_in = st.number_input("x0", value=1.0)
-        tol_in = st.number_input("Tolerancia (%)", value=0.001, format="%.6f")
+        tol_in_str = st.text_input("Tolerancia (%)", value="1e-3")
+        try:
+            tol_in = float(sp.sympify(tol_in_str).evalf())
+        except:
+            tol_in = 0.001
         iter_in = st.slider("Max Iter", 5, 100, 20)
 
     ejecutar = st.button("Calcular")
