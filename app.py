@@ -2486,3 +2486,49 @@ with col2:
                                     f"Error = {_err_nr:{fmt}}%"
                                 )
                             st.code(bloque, language="text")
+
+                # --- GRÁFICOS DE CONVERGENCIA Y FUNCIÓN ---
+                st.subheader("Gráficos")
+                tab1, tab2 = st.tabs(["Función y Raíz", "Convergencia de xₙ"])
+                
+                with tab1:
+                    fig_func = go.Figure()
+                    
+                    x_vals_df = df["x_n"].values
+                    margen = (max(x_vals_df) - min(x_vals_df)) * 0.5
+                    if margen == 0: margen = 1.0
+                    x_plot = np.linspace(min(x_vals_df) - margen, max(x_vals_df) + margen, 300)
+                    y_plot = [evaluar_f(func_input, xi) for xi in x_plot]
+                    
+                    if None not in y_plot:
+                        fig_func.add_trace(go.Scatter(x=x_plot, y=y_plot, name="f(x)", line=dict(color='#86e012')))
+                        fig_func.add_hline(y=0, line_color='white', line_dash='dash')
+                        
+                        y_vals_df = df["f(x_n)"].values
+                        fig_func.add_trace(go.Scatter(
+                            x=x_vals_df, y=y_vals_df, mode='markers+lines',
+                            name="Iteraciones xₙ", line=dict(color='#e03ce6', dash='dot'),
+                            marker=dict(size=8)
+                        ))
+                        
+                        fig_func.add_trace(go.Scatter(
+                            x=[raiz], y=[evaluar_f(func_input, raiz)], mode='markers',
+                            name="Raíz Final", marker=dict(size=12, color='white', symbol='star')
+                        ))
+                        
+                        fig_func.update_layout(template="plotly_dark", title=f"Búsqueda de Raíz ({metodo_sel})", xaxis_title="x", yaxis_title="f(x)")
+                        st.plotly_chart(fig_func, use_container_width=True)
+                    else:
+                        st.warning("No se pudo dibujar f(x).")
+
+                with tab2:
+                    fig_conv = go.Figure()
+                    fig_conv.add_trace(go.Scatter(
+                        x=df["Iter"].values, y=x_vals_df, mode='lines+markers',
+                        name="Aproximación xₙ", line=dict(color='#00cfcc', width=2),
+                        marker=dict(size=8)
+                    ))
+                    fig_conv.update_layout(template="plotly_dark", title="Convergencia de xₙ", xaxis_title="Iteración n", yaxis_title="xₙ")
+                    st.plotly_chart(fig_conv, use_container_width=True)
+            else:
+                st.error("No se pudo calcular la raíz. Verificá la función y los valores iniciales.")
