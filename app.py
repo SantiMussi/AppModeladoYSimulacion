@@ -1118,6 +1118,20 @@ with col2:
                 suma_latex = r"P(x) = " + " + ".join(terminos_latex)
                 st.latex(suma_latex)
 
+                if func_teorica:
+                    x_ev_sym = sp.sympify(x_eval)
+                    val_p_tmp = poly.subs(sp.symbols('x'), x_ev_sym)
+                    v_real_tmp = evaluar_f(func_teorica, float(x_ev_sym.evalf()))
+                    if v_real_tmp is not None:
+                        _err_local = abs(float(val_p_tmp.evalf()) - v_real_tmp)
+                        st.markdown("**Error Local:**")
+                        bloque_err = (
+                            f"E = |P(x) - f(x)|\n"
+                            f"E = |{float(val_p_tmp.evalf()):{fmt}} - {v_real_tmp:{fmt}}|\n"
+                            f"E = {_err_local:{fmt}}"
+                        )
+                        st.code(bloque_err, language="text")
+
             st.subheader("Resultado")
             st.latex(f"P(x) = {sp.latex(poly)}")
 
@@ -1214,7 +1228,8 @@ with col2:
                             f"f''(x_{_i_dc}) = [f(x_{_i_dc+1}) - 2·f(x_{_i_dc}) + f(x_{_i_dc-1})] / h²\n"
                             f"f''({_xi}) = [{_fi_p1} - 2·{_fi} + {_fi_m1}] / {_h_dc}²\n"
                             f"f''({_xi}) = {_fi_p1 - 2*_fi + _fi_m1} / {_h_dc**2}\n"
-                            f"f''({_xi}) = {_d2:{fmt}}"
+                            f"f''({_xi}) = {_d2:{fmt}}\n\n"
+                            f"Error O(h²) = {_h_dc}² = {_h_dc**2:{fmt}}"
                         )
                         st.code(bloque, language="text")
             else: st.error("Se necesitan al menos 3 puntos.")
@@ -2388,8 +2403,13 @@ with col2:
                                     bloque += f" < 0 → b = xₙ = {_xn_b:{fmt}}"
                                 else:
                                     bloque += f" > 0 → a = xₙ = {_xn_b:{fmt}}"
-                            if _r['Error (%)'] != '' and _r['Error (%)'] != 0:
-                                bloque += f"\nError = |xₙ - xₙ₋₁| / |xₙ| × 100% = {_r['Error (%)']:{fmt}}%"
+                            if _r['Error (%)'] != '' and _r['Error (%)'] != 0 and _i_b > 0:
+                                _x_ant = df.iloc[_i_b - 1]["x_n"]
+                                bloque += (
+                                    f"\n\nError = |xₙ - xₙ₋₁| / |xₙ| × 100%\n"
+                                    f"Error = |{_xn_b:{fmt}} - {_x_ant:{fmt}}| / |{_xn_b:{fmt}}| × 100%\n"
+                                    f"Error = {_r['Error (%)']:{fmt}}%"
+                                )
                             st.code(bloque, language="text")
                     else:  # Newton-Raphson
                         for _i_nr in range(len(df)):
@@ -2409,5 +2429,10 @@ with col2:
                             )
                             _err_nr = _r["Error (%)"]
                             if _err_nr != '' and _i_nr > 0:
-                                bloque += f"\n\nError = {_err_nr:{fmt}}%"
+                                _x_ant = df.iloc[_i_nr - 1]["x_n"]
+                                bloque += (
+                                    f"\n\nError = |xₙ - xₙ₋₁| / |xₙ| × 100%\n"
+                                    f"Error = |{_xn_nr:{fmt}} - {_x_ant:{fmt}}| / |{_xn_nr:{fmt}}| × 100%\n"
+                                    f"Error = {_err_nr:{fmt}}%"
+                                )
                             st.code(bloque, language="text")
