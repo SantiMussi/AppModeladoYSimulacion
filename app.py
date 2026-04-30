@@ -1221,7 +1221,9 @@ with col2:
                 if func_teorica:
                     x_ev_sym = sp.sympify(x_eval)
                     val_p_tmp = poly.subs(sp.symbols('x'), x_ev_sym)
-                    v_real_tmp = evaluar_f(func_teorica, float(x_ev_sym.evalf()))
+                    x_eval_float_tmp = float(x_ev_sym.evalf())
+                    v_real_tmp = evaluar_f(func_teorica, x_eval_float_tmp)
+                    
                     if v_real_tmp is not None:
                         _err_local = abs(float(val_p_tmp.evalf()) - v_real_tmp)
                         st.markdown("**Error Local:**")
@@ -1231,6 +1233,49 @@ with col2:
                             f"E = {_err_local:{fmt}}"
                         )
                         st.code(bloque_err, language="text")
+                        
+                    try:
+                        import math
+                        f_sym_teorica = sp.sympify(func_teorica.replace("^", "**").replace("sen", "sin").replace("ln", "log"))
+                        deriv_n = sp.diff(f_sym_teorica, sp.symbols('x'), n_pts)
+                        if not deriv_n.has(sp.Derivative):
+                            min_x_val = min(min(x_in_num), x_eval_float_tmp)
+                            max_x_val = max(max(x_in_num), x_eval_float_tmp)
+                            grid_xi = np.linspace(min_x_val, max_x_val, 200)
+                            
+                            deriv_n_func = sp.lambdify(sp.symbols('x'), deriv_n, modules=['numpy', 'math'])
+                            max_deriv = 0.0
+                            for xi_v in grid_xi:
+                                try:
+                                    val_d = abs(float(deriv_n_func(xi_v)))
+                                    if val_d > max_deriv and not np.isnan(val_d) and not np.isinf(val_d):
+                                        max_deriv = val_d
+                                except:
+                                    pass
+                            
+                            prod_str_list = []
+                            prod_val = 1.0
+                            for xi_n in x_in_num:
+                                dif = abs(x_eval_float_tmp - xi_n)
+                                prod_val *= dif
+                                prod_str_list.append(f"|{x_eval_float_tmp:{fmt}} - {xi_n:{fmt}}|")
+                                
+                            prod_str = " · ".join(prod_str_list)
+                            fact_n = math.factorial(n_pts)
+                            cota_error_tmp = (max_deriv / fact_n) * prod_val
+                            
+                            st.markdown("**Cota de Error (Error Global):**")
+                            bloque_cota = (
+                                f"E_G <= (max|f^({n_pts})(ξ)| / {n_pts}!) · Π |x - x_i|\n"
+                                f"Derivada {n_pts}-ésima: {deriv_n}\n"
+                                f"max|f^({n_pts})(ξ)| en [{min_x_val:{fmt}}, {max_x_val:{fmt}}] ≈ {max_deriv:{fmt}}\n\n"
+                                f"E_G <= ({max_deriv:{fmt}} / {fact_n}) · ({prod_str})\n"
+                                f"E_G <= ({max_deriv / fact_n:{fmt}}) · {prod_val:{fmt}}\n"
+                                f"E_G <= {cota_error_tmp:{fmt}}"
+                            )
+                            st.code(bloque_cota, language="text")
+                    except Exception:
+                        pass
 
             st.subheader("Resultado")
             st.latex(f"P(x) = {sp.latex(poly)}")
@@ -1244,9 +1289,47 @@ with col2:
             if func_teorica:
                 x_eval_float = float(x_ev_sym.evalf())
                 v_real = evaluar_f(func_teorica, x_eval_float)
+                
+                cota_error_val = None
+                try:
+                    import math
+                    f_sym_teorica = sp.sympify(func_teorica.replace("^", "**").replace("sen", "sin").replace("ln", "log"))
+                    deriv_n = sp.diff(f_sym_teorica, sp.symbols('x'), n_pts)
+                    if not deriv_n.has(sp.Derivative):
+                        min_x_val = min(min(x_in_num), x_eval_float)
+                        max_x_val = max(max(x_in_num), x_eval_float)
+                        grid_xi = np.linspace(min_x_val, max_x_val, 200)
+                        
+                        deriv_n_func = sp.lambdify(sp.symbols('x'), deriv_n, modules=['numpy', 'math'])
+                        max_deriv = 0.0
+                        for xi_v in grid_xi:
+                            try:
+                                val_d = abs(float(deriv_n_func(xi_v)))
+                                if val_d > max_deriv and not np.isnan(val_d) and not np.isinf(val_d):
+                                    max_deriv = val_d
+                            except:
+                                pass
+                        
+                        prod_val = 1.0
+                        for xi_n in x_in_num:
+                            prod_val *= abs(x_eval_float - xi_n)
+                            
+                        fact_n = math.factorial(n_pts)
+                        cota_error_val = (max_deriv / fact_n) * prod_val
+                except:
+                    pass
+
                 if v_real is not None:
                     err_local = abs(float(val_p.evalf()) - v_real)
-                    st.metric("Error Local  |P(x) − f(x)|", f"{err_local:{fmt}}")
+                    if cota_error_val is not None:
+                        col_m1, col_m2 = st.columns(2)
+                        col_m1.metric("Error Local  |P(x) − f(x)|", f"{err_local:{fmt}}")
+                        col_m2.metric("Cota de Error Global", f"{cota_error_val:{fmt}}")
+                    else:
+                        st.metric("Error Local  |P(x) − f(x)|", f"{err_local:{fmt}}")
+                else:
+                    if cota_error_val is not None:
+                        st.metric("Cota de Error Global", f"{cota_error_val:{fmt}}")
 
             # Gráfico (solo si no hay variables b, c, etc en y)
             if all(sp.sympify(y).is_number for y in y_in_strs):
