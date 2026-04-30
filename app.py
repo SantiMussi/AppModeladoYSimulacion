@@ -679,11 +679,8 @@ def metodo_punto_fijo_aitken(g_str, x0, tol, max_iter):
         if error_pct is not None and error_pct < tol:
             return pd.DataFrame(history), "convergencia", x_hat, error_pct
 
-        # Siguiente iteración: Xn = Xn* (Aceleración de Steffensen)
-        if x_hat is not None:
-            xn = x_hat
-        else:
-            xn = xn2
+        # Siguiente iteración: Xn = Xn+2 (avanzar secuencia punto fijo)
+        xn = xn2
 
     ultimo_xhat = x_hat if x_hat is not None else xn
     ultimo_err  = error_pct if error_pct is not None else 100.0
@@ -2441,19 +2438,19 @@ with col2:
                         _err = _row["Error %"]
                         bloque = (
                             f"--- Iteración n={int(_row['n'])} ---\n"
-                            f"Xn = {_xn:{fmt}}\n\n"
-                            f"Xn+1 = g(Xn) = g({_xn:{fmt}}) = {_xn1:{fmt}}\n"
-                            f"Xn+2 = g(Xn+1) = g({_xn1:{fmt}}) = {_xn2:{fmt}}\n\n"
+                            f"Xn = {_xn}\n\n"
+                            f"Xn+1 = g(Xn) = g({_xn}) = {_xn1}\n"
+                            f"Xn+2 = g(Xn+1) = g({_xn1}) = {_xn2}\n\n"
                         )
                         if _xn_star != "":
                             _denom = _xn2 - 2*_xn1 + _xn
                             bloque += (
                                 f"Xn* = Xn - (Xn+1 - Xn)² / (Xn+2 - 2·Xn+1 + Xn)\n"
-                                f"Xn* = {_xn:{fmt}} - ({_xn1:{fmt}} - {_xn:{fmt}})² / ({_xn2:{fmt}} - 2·{_xn1:{fmt}} + {_xn:{fmt}})\n"
-                                f"Xn* = {_xn:{fmt}} - {(_xn1 - _xn)**2:{fmt}} / {_denom:{fmt}}\n"
+                                f"Xn* = {_xn} - ({_xn1} - {_xn})² / ({_xn2} - 2·{_xn1} + {_xn})\n"
+                                f"Xn* = {_xn} - {(_xn1 - _xn)**2:{fmt}} / {_denom:{fmt}}\n"
                                 f"Xn* = {_xn_star:{fmt}}\n\n"
                                 f"Error = |Xn* - Xn| / |Xn*| × 100%\n"
-                                f"Error = |{_xn_star:{fmt}} - {_xn:{fmt}}| / |{_xn_star:{fmt}}| × 100%\n"
+                                f"Error = |{_xn_star:{fmt}} - {_xn}| / |{_xn_star:{fmt}}| × 100%\n"
                                 f"Error = {_err:{fmt}}%"
                             )
                         else:
