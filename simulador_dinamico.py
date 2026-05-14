@@ -106,12 +106,12 @@ with tab1:
                 with st.spinner("Calculando diagrama de bifurcación..."):
                     try:
                         sp_, sx, up, ux = compute_bifurcation_diagram(eq_str, bp, br, other, xr)
-                        st.session_state.bif1d = (sp_, sx, up, ux, bp)
+                        st.session_state.bif1d_result = (sp_, sx, up, ux, bp)
                     except Exception as e:
                         st.error(f"Error al calcular bifurcación: {e}")
 
-        if "bif1d" in st.session_state:
-            sp_, sx, up, ux, bp = st.session_state.bif1d
+        if "bif1d_result" in st.session_state:
+            sp_, sx, up, ux, bp = st.session_state.bif1d_result
             if sp_ or up:
                 fig = plot_bifurcation(sp_, sx, up, ux, bp)
                 st.plotly_chart(fig, use_container_width=True)
