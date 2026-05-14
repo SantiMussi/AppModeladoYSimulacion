@@ -97,13 +97,26 @@ with tab1:
             st.plotly_chart(fig2, use_container_width=True)
 
         if bif_1d:
-            bp = p.get("bif_param", list(params.keys())[0]) if p else list(params.keys())[0]
-            br = p.get("bif_range", (-5, 5)) if p else (-5, 5)
-            other = {k: v for k, v in params.items() if k != bp}
-            with st.spinner("Calculando diagrama de bifurcación..."):
-                sp_, sx, up, ux = compute_bifurcation_diagram(eq_str, bp, br, other, xr)
-            fig = plot_bifurcation(sp_, sx, up, ux, bp)
-            st.plotly_chart(fig, use_container_width=True)
+            if not params:
+                st.warning("⚠️ Necesitás al menos un parámetro para el diagrama de bifurcación.")
+            else:
+                bp = p.get("bif_param", list(params.keys())[0]) if p else list(params.keys())[0]
+                br = p.get("bif_range", (-5, 5)) if p else (-5, 5)
+                other = {k: v for k, v in params.items() if k != bp}
+                with st.spinner("Calculando diagrama de bifurcación..."):
+                    try:
+                        sp_, sx, up, ux = compute_bifurcation_diagram(eq_str, bp, br, other, xr)
+                        st.session_state.bif1d = (sp_, sx, up, ux, bp)
+                    except Exception as e:
+                        st.error(f"Error al calcular bifurcación: {e}")
+
+        if "bif1d" in st.session_state:
+            sp_, sx, up, ux, bp = st.session_state.bif1d
+            if sp_ or up:
+                fig = plot_bifurcation(sp_, sx, up, ux, bp)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No se encontraron puntos de equilibrio en el rango. Verificá que la ecuación use el parámetro correctamente.")
 
 # ════════════════════════════ TAB 2D ════════════════════════════
 with tab2:
